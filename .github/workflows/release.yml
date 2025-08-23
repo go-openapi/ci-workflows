@@ -1,0 +1,70 @@
+name: Release
+
+permissions:
+  contents: read
+
+# description: |
+#   Build a github release on either pushed tag or a manual workflow call.
+#
+#   At this moment, the only available asset is a release note.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+
+jobs:
+  gh-release:
+    name: Create release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      -
+        name: Checkout code
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        with:
+          fetch-depth: 0
+      -
+        name: Extract tag message
+        id: get-message
+        # tag message is not retrieved unless we fetch the ref explictly
+        run: |
+          set -x
+
+          git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+          MESSAGE=$(git tag -l '${{ inputs.tag }}' --format='%(contents:subject)
+
+          %(contents:body)
+          ')
+          export MESSAGE
+          {
+            echo "message<<EOF"
+            printenv MESSAGE
+            echo 'EOF'
+          } >> "${GITHUB_OUTPUT}"
+
+          echo "Message in git tag ${{ inputs.tag }}"
+          echo "$MESSAGE"
+      -
+        name: Generate release notes
+        # this uses git-cliff to generate a release note from the commit history
+        id: notes
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPO: ${{ github.repository }}
+        uses: orhun/git-cliff-action@d77b37db2e3f7398432d34b72a12aa3e2ba87e51 # v4.6.0
+        with:
+          config: '.cliff.toml'
+          args: >-
+            --current
+            --with-tag-message '${{ steps.get-message.outputs.message }}'
+      -
+        name: Create github release
+        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
+        with:
+          body: ${{ steps.notes.outputs.content }}
+          tag_name: ${{ inputs.tag }}
+          generate_release_notes: false # skip auto-generated release notes from github API

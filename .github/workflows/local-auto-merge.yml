@@ -1,0 +1,18 @@
+name: Dependabot auto-merge
+
+permissions:
+  contents: read
+
+# description: |
+# This workflow mimics how a go-openapi repo would typically invoke the common workflow.
+
+on:
+  pull_request:
+
+jobs:
+  dependabot:
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/auto-merge.yml
+    secrets: inherit

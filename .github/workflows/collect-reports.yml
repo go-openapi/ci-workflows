@@ -1,0 +1,115 @@
+name: Collect test reports
+
+permissions:
+  pull-requests: read
+  contents: read
+
+on:
+  workflow_call:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+    # description: |
+    #   Gather, merge then uploads test report files from unit test jobs.
+    #
+    #   At this moment test reports are published on both codecov
+    #   (see <https://app.codecov.io/gh/go-swagger/go-swagger/tests>) and the github actions UI
+    #   (see <https://github.com/go-swagger/go-swagger/actions>).
+  collect-reports:
+    name: collect test reports
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Download test report artifacts
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          run-id: "${{ github.run_id }}"
+          pattern: "*.report.*"
+          # artifacts resolve as folders
+          path: reports/
+      -
+        name: Install go-junit-report
+        uses: go-openapi/gh-actions/install/go-junit-report@2c8f8152814933c4cead92a51558699238ee9565
+      -
+        name: Convert test reports to a merged JUnit XML
+        # NOTE: codecov test reports only support JUnit format at this moment. See https://docs.codecov.com/docs/test-analytics.
+        # Ideally, codecov improve a bit their platform, so we may only need a single pass to CTRF format.
+        #
+        # As a contemplated alternative, we could use gotestsum above to produce the JUnit XML directly.
+        # At this moment, we keep a json format to dispatch test reports to codecov as well as to CTRF reports.
+        #
+        # TODO(fredbi): investigate - use mikepenz/action-junit-report@v5, that packages most of the following scripts
+        # in a single action.
+        run: |
+          find reports/ -name \*.json -print0 | xargs -0 cat | go-junit-report -parser gojson -out=reports/junit_report.xml
+      -
+        name: Upload test results to Codecov
+        # This allows for using the test results UI on codecov
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
+        with:
+          files: '**/junit_report.xml'
+          report_type: 'test_results'
+          fail_ci_if_error: false
+          handle_no_reports_found: true
+          verbose: true
+      -
+        name: Install go-ctrf-json-reporter
+        uses: go-openapi/gh-actions/install/go-ctrf-json-reporter@2c8f8152814933c4cead92a51558699238ee9565
+      -
+        name: Convert test reports to CTRF JSON
+        # description: |
+        #   This step publishes CTRF test reports on github UI (actions)
+        run: |
+          appName="${{ github.repository }}"
+          buildNumber="${{ github.run_id }}"
+          appVersion="${{ github.event.pull_request.head.sha }}"
+          if [[ -z "${appVersion}" ]] ; then
+            # for push events
+            appVersion="${{ github.sha }}"
+          fi
+
+          # reconstruct platform information from the file name
+          while read -r report ; do
+            reformated=$(echo "${report##*/}"|sed -E 's/(go)([[:digit:]]+)\.([[:digit:]]+)/\1\2\3/') # e.g. go1.24 becomes go124
+            mapfile -d'.' -t -s 2 -n 2 split < <(echo "$reformated") # skip the first 2 parts, stop on 2 more parts
+            envstring="${split[0]}"
+            osPlatform="${envstring%-*}"
+            osRelease="${envstring##*-}"
+
+            # this is a best effort only: tests may be cancelled upstream and produce incorrect reports
+            go-ctrf-json-reporter \
+              -quiet \
+              -appName "${appName}" \
+              -appVersion "${appVersion}" \
+              -buildNumber "${buildNumber}" \
+              -osPlatform "${osPlatform}" \
+              -osRelease "${osRelease}" \
+              -output "./reports/ctrf_report_${osPlatform}_${osRelease}.json" < "${report}" || true
+          done < <(find reports -name \*.json)
+
+      # NOTE: at this moment, we don't upload CTRF reports as artifacts.
+      # Some of the CTRF reports are therefore not available (flaky tests, history, ...).
+      #
+      # See https://github.com/ctrf-io/github-test-reporter?tab=readme-ov-file#report-showcase
+      # for more reporting possibilities. At the moment, we keep it simple, as most advanced features
+      # require a github token (thus adding the complexity of a separate workflow starting on pull_request_target).
+      #
+      # For the moment, we are contented with these simple reports. This is an opportunity to compare the insight they
+      # provide as compared to what is uploaded to codecov.
+      #
+      # Codecov analytics are pretty poor at this moment. On the other hand, they manage the bot that pushes back
+      # PR comments.
+      #
+      # They also handle the storage of past test reports, so as to assess flaky tests.
+      -
+        name: Publish Test Summary Results
+        uses: ctrf-io/github-test-reporter@024bc4b64d997ca9da86833c6b9548c55c620e40 # v1.0.26
+        with:
+          report-path: 'reports/ctrf_report_*.json'
+          use-suite-name: true
+          summary-report: true             # post a report to the github actions summary
+          github-report: true
+          failed-folded-report: true

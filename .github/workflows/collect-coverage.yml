@@ -1,0 +1,39 @@
+name: Collect coverage
+
+permissions:
+  pull-requests: read
+  contents: read
+
+on:
+  workflow_call:
+
+jobs:
+  collect-coverage:
+    # description: |
+    #   Gather, merge then uploads test coverage files from all test jobs (this includes integration tests,
+    #   like codegen-test). This reduces the number of failures due to codecov hitting github API rate limit.
+    name: collect test coverage
+    runs-on: ubuntu-latest
+    steps:
+      -
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+      -
+        name: Download coverage artifacts
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          run-id: "${{ github.run_id }}"
+          pattern: "*.coverage.*"
+          # artifacts resolve as folders
+          path: coverage/
+      -
+        name: Upload coverage to codecov
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
+        with:
+          name: Aggregated coverage
+          # All *.coverage.*.out files uploaded should be detected by the codecov action.
+          # NOTE: we lose the flags on individual test reports (e.g. by os, by go version, unit vs integration tests)
+          fail_ci_if_error: false
+          verbose: false

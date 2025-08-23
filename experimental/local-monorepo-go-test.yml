@@ -1,0 +1,19 @@
+name: go test
+
+permissions:
+  contents: read
+  pull-requests: read
+
+on:
+  push:
+    tags:
+      - v*
+    branches:
+      - master
+
+  pull_request:
+
+jobs:
+  go-monorepo-test:
+    uses: ./.github/workflows/monorepo-go-test.yml
+    secrets: inherit

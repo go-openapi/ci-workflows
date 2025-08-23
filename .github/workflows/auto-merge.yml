@@ -1,0 +1,58 @@
+name: Dependabot auto-merge
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  dependabot:
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}
+    steps:
+      -
+        name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@08eff52bf64351f401fb50d4972fa95b9f2c2d1b # v2.4.0
+      -
+        name: Auto-approve all dependabot PRs
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: gh pr review --approve "$PR_URL"
+      -
+        name: Auto-merge dependabot PRs for development dependencies
+        if: ${{ contains(steps.metadata.outputs.dependency-group, 'development-dependencies') }}
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: gh pr merge --auto --rebase "$PR_URL"
+
+  actions-bot:
+    # description: |
+    #   Auto merge for go-openapi bot.
+    #   The regular actions-bot user cannot approve and merge its own pull requests,
+    #   We use another bot user to update content to be approved/auto-merged by actions-bot.
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.user.login == 'bot-go-openapi[bot]' }}
+    env:
+      PR_URL: ${{github.event.pull_request.html_url}}
+      GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+    steps:
+      -
+        name: Auto-approve all bot-go-openapi PRs
+        run: gh pr review --approve "$PR_URL"
+      -
+        name: Auto-merge bot-go-openapi PRs
+        run: gh pr merge --auto --rebase "$PR_URL"

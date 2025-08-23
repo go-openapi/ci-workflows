@@ -1,0 +1,151 @@
+name: pr-comment
+# description: |
+#   This workflow is a trusted workflow that creates or updates comments in PRs.
+#
+#   It may be called by other workflows executing on pull_request_target against the go-openapi repos.
+#
+#   The principle is to communicate the content of a comment between workflows using an uploaded artifact.
+
+permissions:
+  pull-requests: write
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      run_id:
+        description: |
+          The run ID of the calling workflow that has emitted the message artifact, e.g. {{ github.event.workflow_run.id }}
+        type: string
+        required: true
+      target_repo:
+        description: |
+          The target repository of the PR, e.g. {{ github.repository }}
+        type: string
+        required: true
+      pr_number:
+        description: |
+          The pull request number, e.g. {{ github.event.pull_request.number }}
+        type: string
+        required: true
+      pr_sha:
+        description: |
+          The commit sha for the originating pull request, e.g. {{github.event.pull_request.head.sha}}
+        type: string
+        required: true
+      artifact_name:
+        description: |
+          The reference to the artifact containing the text of the comment.
+
+          At this moment, only supports "markdown_comment.txt" and "spellcheck_comment.txt"
+        type: string
+        required: true
+      comment_title:
+        description: |
+          Title is a text string used to uniquely identify a comment that will be upaded on subsequent commits.
+        type: string
+        required: true
+      reactions:
+        description: |
+          Optional emoji reaction added to the comment.
+        type: string
+        required: false
+
+env:
+  GITHUB_API: "https://api.github.com"
+  MAX_MESSAGE_SIZE: 4096
+
+jobs:
+  pr-comment:
+    runs-on: ubuntu-latest
+    env:
+      TARGET: "${{ inputs.target_repo }}"
+    steps:
+    - name: Validate inputs
+      run: |
+        rex='^go-openapi\/.*$'
+        if ! [[ "${{ env.TARGET }}" =~ $rex ]] ; then
+          echo "This workflow only applies to target repos in github.com/go-openapi."
+          exit 1
+        fi
+        if [[ "${{ inputs.artifact_name }}" != "markdown_comment.txt" && "${{ inputs.artifact_name }}" != "spellcheck_comment.txt" ]] ; then
+          echo "This workflow only applies to artifacts named markdown_comment.txt or spellcheck_comment.txt"
+          exit 1
+        fi
+
+    - name: Check originating PR
+      # description: |
+      #   This check verifies that the originating PR has not been already modified
+      #   by the time this workflow executes. If this is the case, the job is skipped
+      #   and no comment is issued.
+      id: check_pr
+      env:
+        PRN: "${{ inputs.pr_number }}"
+      run: |
+        LAST_COMMIT=$(\
+          curl -s \
+               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+               "${GITHUB_API}/repos/${TARGET}/pulls/${PRN}/commits" | \
+          jq -r '.[-1].sha'\
+        )
+
+        if [[ "${LAST_COMMIT}" != "${{ inputs.pr_sha }}" ]] ; then
+          echo "The PR has changed while we were about to commit it. Skip."
+          echo "proceed=false" >> "${GITHUB_OUTPUT}"
+          
+          echo "::warning:: pull request comment skipped because ${{ github.event.pull_request.number }} has changed"
+          exit 0
+        fi
+        echo "proceed=true" >> "${GITHUB_OUTPUT}"
+
+    - name: Download message artifact
+      if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
+      id: download
+      uses: actions/download-artifact@v5
+      with:
+        run-id: "${{ inputs.run_id }}"
+        repository: "${{ env.TARGET }}"
+        name: "${{ inputs.artifact_name }}"
+        path: artifacts/
+        github-token: ${{secrets.GITHUB_TOKEN}}
+
+    - name: Check message artifact size
+      if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
+      run: |
+        MESSAGE_FILE="${{ steps.download.outputs.download-path }}/${{ inputs.artifact_name }}"
+        SIZE=$(cat "${MESSAGE_FILE}"|wc -c)
+        if [[ "${SIZE}" -gt "${{ env.MAX_MESSAGE_SIZE }}" ]] ; then
+          # truncate the message up to MAX_MESSAGE_SIZE
+          head -c ${{ env.MAX_MESSAGE_SIZE }} "${MESSAGE_FILE}" > /tmp/truncated
+          echo >> /tmp/truncated
+          echo "... (truncated)" >> /tmp/truncated
+          mv /tmp/truncated "${MESSAGE_FILE}"
+          echo "::warning:: ${{ inputs.artifact_name }} comment message with size ${SIZE} has been truncated to ${{ env.MAX_MESSAGE_SIZE }} bytes."
+        fi
+
+    - name: Find previous PR comment
+      if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
+      uses: peter-evans/find-comment@v3
+      id: find_comment
+      with:
+        repository: ${{ inputs.target_repo }}
+        issue-number:  ${{ inputs.pr_number }}
+        body-includes: ${{ inputs.comment_title }}
+        direction: last
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create or update PR comment
+      if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
+      uses: peter-evans/create-or-update-comment@v4
+      with:
+        issue-number: ${{ inputs.pr_number }}
+        comment-id: ${{ steps.find_comment.outputs.comment-id }}
+        reactions: ${{ inputs.reactions }}
+        reactions-edit-mode: replace
+        body-path: ${{ steps.download.outputs.download-path }}/${{ inputs.artifact_name }}
+        edit-mode: replace
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Notify
+      run: |
+        echo "::notice::Commented pull request ${{ inputs.pr_number }} with ${{ inputs.artifact_name }}"

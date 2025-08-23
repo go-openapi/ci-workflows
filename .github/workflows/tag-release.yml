@@ -1,0 +1,29 @@
+name: Release on tag
+
+permissions:
+  contents: read
+
+# description: |
+#   Build a github release on pushed tag.
+#
+#   The only available asset is a release note.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+
+jobs:
+  gh-release:
+    # trigger release creation explictly.
+    # The previous tagging action does not trigger the normal release workflow
+    # (github prevents cascading triggers from happening).
+    name: Create release
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit

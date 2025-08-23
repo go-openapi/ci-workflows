@@ -1,0 +1,155 @@
+name: fuzz test
+
+permissions:
+  pull-requests: read
+  contents: read
+
+on:
+  workflow_call:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  fuzz-matrix:
+    name: Fuzz matrix
+    # Known limitation: go test -fuzz cannot run fuzz with multiple packages.
+    #
+    # We have to identify which package contains fuzz tests then execute them.
+    # See https://github.com/golang/go/issues/46312.
+    # An alternative to using jq and matrix is to use (or rewrite): https://github.com/demurky/gofuzz/
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.get-fuzz-tests.outputs.matrix }}
+    steps:
+      -
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+      -
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        with:
+          go-version: stable
+          check-latest: true
+          cache: true
+      -
+        name: Fuzz tests matrix
+        id: get-fuzz-tests
+        run: |
+          # Suppports: multiple tests, multiple packages, multiple modules
+          fuzz_tests=$(\
+            go test work -list Fuzz -json ./... |\
+            jq  '.|select(.Action == "output")|select( (.Output|test("^(ok)|(\\?)"))|not )|{package: .Package, test: (.Output|gsub("\n";""))}'|\
+            jq --slurp \
+          )
+          echo "matrix=${fuzz_test}" >> "${GITHUB_OUTPUT}"
+          echo "::notice title=Fuzz tests found:${fuzz_tests}"
+
+  fuzz-test:
+    name: fuzz test
+    runs-on: ubuntu-latest
+    needs: [fuzz-matrix]
+    if: ${{ needs.fuzz-matrix.outputs.matrix != '' && needs.fuzz-matrix.outputs.matrix != '[]' }}
+    strategy:
+      matrix:
+        include: ${{ fromJSON(needs.fuzz-matrix.outputs.matrix) }}
+    env:
+      CORPUS_MAX_SIZE_MB: 250
+      FUZZ_TIME: 1m30s
+      FUZZ_MINIMIZE_TIME: 5m
+    steps:
+      -
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+      -
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        with:
+          go-version: stable
+          check-latest: true
+          cache: true
+      -
+        name: Locate go fuzz cache
+        run: |
+          GOCACHE=$(go env GOCACHE)
+          echo "CORPUS_DIR=${GOCACHE}/fuzz" >> "${GITHUB_ENV}"
+      -
+        name: Retrieve fuzz corpus from cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          key: ${{ runner.os }}-go-fuzz
+          path:
+            ${{ env.CORPUS_DIR }}
+      -
+        name: Manage fuzz corpus cache size
+        run: |
+          mkdir -p "${CORPUS_DIR}"
+          # This script checks that the size of the corpus cache doesn't exceed ${CORPUS_MAX_SIZE_MB},
+          # and if it does, it removes all oldest files beyond that size.
+
+          function size() {
+            local location=$1
+            local unit=$2
+
+            du -s"${unit}" "${location}"|cut -f1
+          }
+
+          function purge() {
+            local location=$1
+            local max_size_b=$2
+            declare -i current_size_b=0 file_size_b=0 purged_files=0
+
+            while read -r filename ; do
+              file_size_b="$(size "${filename}" "b")"
+              ((current_size_b+=file_size_b))
+
+              if [[ ${current_size_b} -le ${max_size_b} ]] ; then
+                continue
+              fi
+              if [[ ${file_size_b} -eq 0 ]] ; then
+                continue
+              fi
+
+              rm -f "${filename}"
+              ((purged_files+=1))
+            done < <(find "${location}" -type f -print0 | xargs -0 ls -t)
+
+            echo ${purged_files}
+          }
+
+          CURRENT_SIZE_MB="$(size "${CORPUS_DIR}" "m")"
+          if [[ "${CURRENT_SIZE_MB}" -lt "${MAX_SIZE_MB}" ]] ; then
+            echo "::notice:cache size remains under the accepted size of ${MAX_SIZE_MB} MB: ${CURRENT_SIZE_MB} MB"
+
+            exit 0
+          fi
+
+          declare -i max_size_b=$(("${CORPUS_MAX_SIZE_MB}" * 1024 * 1024))
+          purged_files=$(purge "${purged_dir}" "${max_size_b}");
+          echo "::notice:cache size is ${CURRENT_SIZE_MB} MB: purging oldest files to keep it under ${CORPUS_MAX_SIZE_MB} MB"
+          if [[ ${purged_files} -gt 0 ]] ; then
+            echo "::notice:removed ${purged_files} files to keep the cache size below ${CORPUS_MAX_SIZE_MB} MB"
+          fi
+          FINAL_SIZE_MB="$(size "${CORPUS_DIR}" "m")"
+          echo "::notice:purged cache size: ${FINAL_SIZE_MB} MB"
+      -
+        name: Run go fuzz test ${{ matrix.test }}
+        run: >
+          go test
+          -fuzz=Fuzz
+          -run='${{ matrix.test }}$'
+          -fuzztime='${{ env.FUZZ_TIME }}'
+          -fuzzminimizetime='${{ env.FUZZ_MINIMIZE_TIME }}'
+          ${{ matrix.package }}
+      -
+        name: Upload failed corpus
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        # TODO(fredbi): ideally, after uploading, we should fire a pull request to add
+        # this corpus to testdata.
+        with:
+          path: ${{ env.CORPUS_DIR }}
+          name: '${{ runner.os }}-fuzz-corpus-failure'
+          retention-days: 60
+      -
+        name: Report fuzz corpus cache size
+        run: |
+          FINAL_SIZE=$(du -m "${CORPUS_DIR}"|cut -f1)
+          echo "::notice title=fuzz corpus size:${FINAL_SIZE}MB"

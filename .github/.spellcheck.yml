@@ -1,0 +1,32 @@
+spellchecker: hunspell
+matrix:
+  - name: markdown
+    hunspell:
+      d: en_us
+      ignore-case: true
+    pipeline:
+      - pyspelling.filters.url:
+          urls: true
+          emails: true
+      - pyspelling.filters.markdown:
+          markdown_extensions:
+            - pymdownx.superfences
+            - pymdownx.arithmatex
+            - md_in_html
+            - markdown.extensions.extra:
+      - pyspelling.filters.html:
+          comments: false
+          attributes:
+            - alt
+          ignores:
+            - ':matches(code, pre)'
+            - 'code'
+            - 'pre'
+            - 'blockquote'
+    dictionary:
+      wordlists:
+        - .github/.wordlist.txt
+      output: .github/spellcheck.dic
+    default_encoding: utf-8
+    sources:
+      - '**.md'
