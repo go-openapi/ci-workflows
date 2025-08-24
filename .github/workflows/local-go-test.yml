@@ -1,0 +1,17 @@
+name: go test
+
+# This workflow mimics how a go-openapi repo would typically invoke the common workflow.
+
+on:
+  push:
+    tags:
+      - v*
+    branches:
+      - master
+
+  pull_request:
+
+jobs:
+  test:
+    uses: ./.github/workflows/go-test.yml
+    secrets: inherit

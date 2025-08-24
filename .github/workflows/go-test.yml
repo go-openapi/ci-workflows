@@ -6,6 +6,15 @@ on:
 jobs:
   lint:
     name: Lint
+    # description: |
+    # Lint uses golangci-lint github action and lints only changes from master.
+    #
+    # It will run on the latest go version.
+    #
+    # We rely on golangci-lint to automatically disable linters that do not apply to the minimum required go version
+    # currently defined in go.mod.
+    #
+    # At this moment, .golangci.yml configuration files are not shared: each repository must have its configuration.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -19,11 +28,31 @@ jobs:
         with:
           version: latest
           only-new-issues: true
-          skip-cache: true
+          skip-cache: false
+      - name: Linting complete  # <- report summary when we have good news to report
+        run: |
+          echo "### Your changes to the go code look good. 👍" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> ℹ️ INFO: we use [golangci-lint action](https://github.com/golangci/golangci-lint-action)" >> $GITHUB_STEP_SUMMARY
+          echo "> to lint any change to go code from master" >> $GITHUB_STEP_SUMMARY
 
   unit_tests:
     name: Unit tests
+    # description: |
+    # Run go unit tests run x6: linux, mac & windows on the 2 latest go versions.
+    #
+    # Run tests with the -race flag.
+    #
+    # Captures test coverage and uploads it to codecov.com.
     runs-on: ${{ matrix.os }}
+    outputs:
+      # NOTE(fredbi): as of Aug. 2025, there is no way to have github actions declare outputs dynamically
+      test_result_oldstable_ubuntu_latest: "${{ steps.goreport.outputs.test_result_oldstable_ubuntu_latest }}"
+      test_result_oldstable_macos_latest: "${{ steps.goreport.outputs.test_result_oldstable_macos_latest }}"
+      test_result_oldstable_windows_latest: "${{ steps.goreport.outputs.test_result_oldstable_windows_latest }}"
+      test_result_stable_ubuntu_latest: "${{ steps.goreport.outputs.test_result_stable_ubuntu_latest }}"
+      test_result_stable_macos_latest: "${{ steps.goreport.outputs.test_result_stable_macos_latest }}"
+      test_result_stable_windows_latest: "${{ steps.goreport.outputs.test_result_stable_windows_latest }}"
 
     strategy:
       matrix:
@@ -35,12 +64,34 @@ jobs:
       with:
         go-version: '${{ matrix.go_version }}'
         check-latest: true
-        cache: true
+        cache: true # <- cache key is go.sum
 
     - uses: actions/checkout@v5
+
     - name: Run unit tests
+      # description: |
+      # runs unit tests with test coverage assuming that this repository contains only one module,
+      # with a go.mod located at the root.
+      id: gotest
       shell: bash
-      run: go test -v -race -coverprofile="coverage-${{ matrix.os }}.${{ matrix.go_version }}.out" -covermode=atomic -coverpkg=$(go list)/... ./...
+      run: |
+        go test -v \
+          -race \
+          -coverprofile="coverage-${{ matrix.os }}.${{ matrix.go_version }}.out" \
+          -covermode=atomic \
+          -coverpkg=$(go list ./... |paste -sd ",") \
+        ./...
+
+    - name: Report test
+      if: ${{ success() || failure() }}
+      id: goreport
+      shell: bash
+      run: |
+        icon="✅"
+        if [[ "${{ steps.gotest.outcome }}" != "success" ]] ; then
+          icon="🚫"
+        fi
+        echo "test_result_${{ matrix.go_version }}_$(echo "${{ matrix.os }}"|tr '-' '_')='| ${{ matrix.go_version }} | ${{ matrix.os }} | ${icon} ${{ steps.gotest.outcome }}  |'" >> "$GITHUB_OUTPUT"
 
     - name: Upload coverage to codecov
       uses: codecov/codecov-action@v5
@@ -48,13 +99,50 @@ jobs:
         files: './coverage-${{ matrix.os }}.${{ matrix.go_version }}.out'
         flags: '${{ matrix.go_version }}-${{ matrix.os }}'
         fail_ci_if_error: false
-        verbose: true
+        verbose: false
 
   all_tests:
-    needs: [ unit_tests ]
     name: All tests
+    # description: |
+    # This job regroups all tests launched as a matrix, so we may define a branch protection rule
+    # just on that job rather than each matrix job independently.
+    needs: [ unit_tests ]    # <- requires all unit_tests jobs to be successful.
+    env:
+      test_result: '${{ join(needs.unit_tests.outputs.*) }}'  # <- this is a comma-separated list of quoted strings
     runs-on: ubuntu-latest
     steps:
       - name: Tests complete
         run: |
-          echo "All tests completed"
+          echo "### All tests completed. 👍" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> ℹ️ INFO: we run unit tests in 6 different configurations of OS and go version." >> $GITHUB_STEP_SUMMARY
+          echo "> At this moment, we don't run architecture-specific test runs" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| go version | OS | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|----|--------|" >> $GITHUB_STEP_SUMMARY
+          declare -a lines 
+          eval "lines=($(echo $test_result|tr ',' ' '))"
+          for line in "${lines[@]}";do echo "${line}" ; done >> $GITHUB_STEP_SUMMARY
+
+  some_failed_tests:
+    name: Some tests have failed
+    # description: |
+    # This job is only here to report a summary of failed tests in the github actions UI.
+    needs: [ unit_tests ]     # <- requires all unit_tests jobs to be completed, but not all where successfull.
+    if: ${{ failure() }}
+    env:
+      test_result: '${{ join(needs.unit_tests.outputs.*) }}'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tests failed
+        run: |
+          echo "### Some tests have failed. 🚫" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> ℹ️ INFO: testing halted on first encountered failure." >> $GITHUB_STEP_SUMMARY
+          echo "> Some configurations may not have been tested yet." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| go version | OS | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|----|--------|" >> $GITHUB_STEP_SUMMARY
+          declare -a lines 
+          eval "lines=($(echo $test_result|tr ',' ' '))"
+          for line in "${lines[@]}";do echo "${line}" ; done >> $GITHUB_STEP_SUMMARY
