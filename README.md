@@ -8,7 +8,7 @@ Common CI workflows and setup for go-openapi repos.
 NOTE: at this moment, it is difficult to share the golangci-lint config, so that one is not shared yet.
 
 ## Motivation
-
+xxx
 It took a while, but we eventually managed to align all checks, tests and dependabot rules declared in the
 family of go-openapi repos. 
 
