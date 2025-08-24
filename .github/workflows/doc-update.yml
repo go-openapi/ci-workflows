@@ -1,0 +1,159 @@
+name: doc update check
+
+on:
+  workflow_call:
+
+# TODO:
+#  * [] markdown lint
+#  * [] spell checker
+
+permissions:
+  pull-requests: write
+  contents: read
+
+env:
+  comment-title: Markdown linter
+
+jobs:
+  markdown-changed:
+    # description: |
+    # This performs a markdown lint whenever documentation files change
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.changed-markdown-files.outputs.any_changed }}
+      all_changed_files: ${{ steps.changed-markdown-files.outputs.all_changed_files }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Get changed markdown files
+        uses: tj-actions/changed-files@v46
+        id: changed-markdown-files
+        with:
+          files: '**/*.md'
+
+      - name: Notify
+        run: |
+          echo "::notice::Detected some changed markdown files"
+          echo "${{ steps.changed-markdown-files.outputs.all_changed_files }}"
+
+  lint-markdown:
+    needs: markdown-changed
+    if: needs.markdown-changed.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    env:
+      lintreport: './markdownlint-report.txt'
+    outputs:
+      proceed: ${{ steps.report-exists.outputs.proceed }}
+      report: ${{ steps.report-exists.outputs.report }}
+
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v5
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        #ref: "refs/pull/${{ github.event.number }}/merge"  # it's okay to pull the user's changes: we just scan md's
+
+    - name: Run markdown linter
+      continue-on-error: true
+      id: markdownlint
+      uses: docker://avtodev/markdown-lint:v1.5
+      with:
+        config: ./.github/.markdownlint.yml
+        args: '${{ needs.markdown-changed.outputs.all_changed_files }}'
+        output: '${{ env.lintreport }}'
+
+    - name: Find previous PR comment
+      if: steps.markdownlint.outcome == 'success'
+      uses: peter-evans/find-comment@v3
+      id: findcomment
+      with:
+        issue-number:  ${{ github.event.pull_request.number }}
+        body-includes: ${{ env.comment-title }}
+        direction: last
+
+    - name: Comment on success
+      if: steps.markdownlint.outcome == 'success'
+      id: congrats
+      uses: peter-evans/create-or-update-comment@v4
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-id: ${{ steps.findcomment.outputs.comment-id }}
+        reactions: hooray
+        reactions-edit-mode: replace
+        body: |
+          ### ${{ env.comment-title }}
+           
+          Markdown looks good to me. Congrats!
+
+    - name: Check lint report exists
+      if: ${{ steps.markdownlint.outcome != 'success' && hashFiles(env.lintreport) != '' }}
+      id: report-exists
+      run: |
+        echo 'report<<EOF' >> $GITHUB_OUTPUT
+        cat ${{ env.lintreport }}|sed -e '$a\' >> $GITHUB_OUTPUT
+        echo 'EOF' >> $GITHUB_OUTPUT
+
+        if [[ "$(cat ${{ env.lintreport }}|wc -l)" != "0" ]] ; then
+          echo "proceed=true" >> $GITHUB_OUTPUT
+          echo "::notice::Detected some linting issues with changed markdown"
+          cat ${{ env.lintreport }}|sed -e '$a\'
+        else
+          echo "proceed=false" >> $GITHUB_OUTPUT
+          echo "::notice::No linting issues with changed markdown"
+        fi
+
+    - name: Other linter errors
+      if: ${{ steps.markdownlint.outcome != 'success' && hashFiles(env.lintreport) == '' }}
+      run: |
+        echo "::error::markdown linter encountered an error"
+        exit 1
+
+  pr-comment:
+    needs: lint-markdown
+    if: needs.lint-markdown.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Format PR comment
+      id: commentformatter
+      uses: skills/action-text-variables@v1
+      with:
+        template-vars: |
+            text='${{ needs.lint-markdown.outputs.report }}'
+        template-text: |
+            ### ${{ env.comment-title }}
+            
+            Some markdown linting issues were detected in the modified .md files.
+
+            Perhaps they were already there before your changes.
+
+            This check is advisory only and not blocking. Please help us adopt a nice markdown style.
+
+            Markdown formatting rules are documented [here](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md).
+            <br> 
+            {{ text }}
+
+    - name: Find previous PR comment
+      uses: peter-evans/find-comment@v3
+      id: findcomment
+      with:
+        issue-number:  ${{ github.event.pull_request.number }}
+        body-includes: ${{ env.comment-title }}
+        direction: last
+
+    - name: Create or update PR comment
+      uses: peter-evans/create-or-update-comment@v4
+      with:
+        issue-number: ${{ github.event.pull_request.number }}
+        comment-id: ${{ steps.findcomment.outputs.comment-id }}
+        reactions: confused
+        reactions-edit-mode: replace
+        body: ${{ steps.commentformatter.outputs.updated-text }}
+        edit-mode: replace
+
+    - name: Notify
+      run: |
+        echo "::notice::Commented pull request ${{ github.event.pull_request.number }}"
+        echo "::debug::${{ steps.commentformatter.outputs.updated-text }}"

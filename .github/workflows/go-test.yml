@@ -34,7 +34,7 @@ jobs:
           echo "### Your changes to the go code look good. 👍" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "> ℹ️ INFO: we use [golangci-lint action](https://github.com/golangci/golangci-lint-action)" >> $GITHUB_STEP_SUMMARY
-          echo "> to lint any change to go code from master" >> $GITHUB_STEP_SUMMARY
+          echo "> to lint any change to go code from master." >> $GITHUB_STEP_SUMMARY
 
   unit_tests:
     name: Unit tests
@@ -116,7 +116,7 @@ jobs:
           echo "### All tests completed. 👍" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "> ℹ️ INFO: we run unit tests in 6 different configurations of OS and go version." >> $GITHUB_STEP_SUMMARY
-          echo "> At this moment, we don't run architecture-specific test runs" >> $GITHUB_STEP_SUMMARY
+          echo "> At this moment, we don't run architecture-specific tests." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| go version | OS | Result |" >> $GITHUB_STEP_SUMMARY
           echo "|------------|----|--------|" >> $GITHUB_STEP_SUMMARY
