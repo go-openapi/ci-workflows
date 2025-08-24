@@ -10,7 +10,7 @@ NOTE: at this moment, it is difficult to share the golangci-lint config, so that
 ## Motivation
 
 It took a while, but we eventually managed to align all checks, tests and dependabot rules declared in the
-family of go-openapi repos. 
+family of go-openapi repos. c
 
 Now we'd like to be able to maintain, enrich and improve these checks without worrying too much about
 the burden to replicate it about a dozen times.
