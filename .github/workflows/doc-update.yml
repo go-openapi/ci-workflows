@@ -4,7 +4,6 @@ on:
   workflow_call:
 
 # TODO:
-#  * [] markdown lint
 #  * [] spell checker
 
 permissions:
