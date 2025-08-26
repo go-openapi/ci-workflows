@@ -1,4 +1,24 @@
 name: go test
+# description: |
+#   This workflow to run unit tests on a repo that contains a single go module.
+#
+#   ## Usage of github action features
+#
+#   * shared workflow
+#   * matrix job
+#   * job summary (on actions UI)
+#
+#   ## Limitations of github action features
+#
+#     * [ ] needed to hardcode all matrix job entries as outputs. No way to make this dynamic.
+#
+#   ## TODO
+#
+#     * [ ] perhaps implement in golangci-lint the "extends" or "include" functionality to merge
+#           config files from a remote location. We don't want to push configs from CI as we'd
+#           like all repos to allow users to fork, lint and run just like they were independent,
+#           and not impose some "invisible linter" check.
+#     * [ ] we need to make a specific version for mono-repos. For now, only go-openapi swag is a mono-repo.
 
 on:
   workflow_call:
@@ -7,14 +27,14 @@ jobs:
   lint:
     name: Lint
     # description: |
-    # Lint uses golangci-lint github action and lints only changes from master.
+    #   Lint uses golangci-lint github action and lints only changes from master.
     #
-    # It will run on the latest go version.
+    #   It will run on the latest go version.
     #
-    # We rely on golangci-lint to automatically disable linters that do not apply to the minimum required go version
-    # currently defined in go.mod.
+    #   We rely on golangci-lint to automatically disable linters that do not apply to the minimum required go version
+    #   currently defined in go.mod.
     #
-    # At this moment, .golangci.yml configuration files are not shared: each repository must have its configuration.
+    #   At this moment, .golangci.yml configuration files are not shared: each repository must have its configuration.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -39,11 +59,13 @@ jobs:
   unit_tests:
     name: Unit tests
     # description: |
-    # Run go unit tests run x6: linux, mac & windows on the 2 latest go versions.
+    #   Run go unit tests x6 on linux, mac & windows for the 2 latest go versions.
     #
-    # Run tests with the -race flag.
+    #   * Run tests with the -race flag.
+    #   * Captures test coverage and uploads it to codecov.com.
     #
-    # Captures test coverage and uploads it to codecov.com.
+    #   > NOTE: coverage uploads to codecov are authorized thanks to an organization token that is
+    #   > managed on [codecov admin console](https://app.codecov.io/account/gh/go-openapi).
     runs-on: ${{ matrix.os }}
     outputs:
       # NOTE(fredbi): as of Aug. 2025, there is no way to have github actions declare outputs dynamically
@@ -70,8 +92,13 @@ jobs:
 
     - name: Run unit tests
       # description: |
-      # runs unit tests with test coverage assuming that this repository contains only one module,
-      # with a go.mod located at the root.
+      #   Runs unit tests with test coverage assuming that this repository contains only one module,
+      #   with a go.mod located at the root.
+      #
+      #   > NOTE
+      #   > The -coverpkg option is important to have all coverage files containing
+      #   > an appropriate reference to source files, so coverage may be followed accuratelt
+      #   > on codecov UI.
       id: gotest
       shell: bash
       run: |
@@ -83,6 +110,8 @@ jobs:
         ./...
 
     - name: Report test
+      # description: |
+      #   This is reporting the job summary (github UI).
       if: ${{ success() || failure() }}
       id: goreport
       shell: bash
@@ -104,8 +133,8 @@ jobs:
   all_tests:
     name: All tests
     # description: |
-    # This job regroups all tests launched as a matrix, so we may define a branch protection rule
-    # just on that job rather than each matrix job independently.
+    #   This job regroups all tests launched as a matrix, so we may define a branch protection rule
+    #   just on that job rather than each matrix job independently.
     needs: [ unit_tests ]    # <- requires all unit_tests jobs to be successful.
     env:
       test_result: '${{ join(needs.unit_tests.outputs.*) }}'  # <- this is a comma-separated list of quoted strings

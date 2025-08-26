@@ -1,6 +1,5 @@
 name: Dependabot auto-merge
-
-# This workflow mimics how a go-openapi repo would typically invoke the common workflow.
+# description: This workflow mimics how a go-openapi repo would typically invoke the common workflow.
 
 on: pull_request
 
