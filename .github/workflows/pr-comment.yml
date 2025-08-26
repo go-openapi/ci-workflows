@@ -11,33 +11,40 @@ on:
     inputs:
       run_id:
         description: |
-          The run ID of the calling workflow that has emitted the message artifact, e.g. ${{ github.event.workflow_run.id }}
+          The run ID of the calling workflow that has emitted the message artifact, e.g. {{ github.event.workflow_run.id }}
+        type: string
         required: true
       target_repo:
         description: |
-          The target repository of the PR, e.g. ${{ github.repository }}
+          The target repository of the PR, e.g. {{ github.repository }}
+        type: string
         required: true
       pr_number:
         description: |
-          The pull request number, e.g. ${{ github.event.pull_request.number }}
+          The pull request number, e.g. {{ github.event.pull_request.number }}
+        type: string
         required: true
       pr_sha:
         description: |
-          The commit sha for the originating pull request, e.g. ${{github.event.pull_request.head.sha}}
+          The commit sha for the originating pull request, e.g. {{github.event.pull_request.head.sha}}
+        type: string
         required: true
       artifact_name:
         description: |
           The reference to the artifact containing the text of the comment.
 
           At this moment, only supports "markdown_comment.txt" and "spelling_comment.txt"
+        type: string
         required: true
       comment_title:
         description: |
           Title is a text string used to uniquely identify a comment that will be upaded on subsequent commits.
+        type: string
         required: true
       reactions:
         description: |
           Optional emoji reaction added to the comment.
+        type: string
         required: false
 
 permissions:
@@ -57,11 +64,11 @@ jobs:
     steps:
     - name: Validate inputs
       run: |
-        if [[ "${{ env.TARGET }}" !~ /github.com\/go-openapi/ ]] ; then
+        if ! [[ "${{ env.TARGET }}" =~ "^go-openapi\/.*$" ]] ; then
           echo "This workflow only applies to target repos in github.com/go-openapi."
           exit 1
         fi
-        if [[ "${{ inputs.artifact_name }}" != "markdown_comment.txt" && "${{ inputs.artifact_name }}" != "spelling_comment.txt" && ]] ; then
+        if [[ "${{ inputs.artifact_name }}" != "markdown_comment.txt" && "${{ inputs.artifact_name }}" != "spelling_comment.txt" ]] ; then
           echo "This workflow only applies to artifacts named markdown_comment.txt or spelling_comment.txt"
           exit 1
         fi
@@ -84,15 +91,15 @@ jobs:
 
         if [[ "${LAST_COMMIT}" != "${{ inputs.pr_sha }}" ]] ; then
           echo "The PR has changed while we were about to commit it. Skip."
-          echo "proceed=false" >> "${{GITHUB_OUTPUT}}"
+          echo "proceed=false" >> "${GITHUB_OUTPUT}"
           
           echo "::warning:: pull request comment skipped because ${{ github.event.pull_request.number }} has changed"
           exit 0
         fi
-        echo "proceed=true" >> "${{GITHUB_ENV}}"
+        echo "proceed=true" >> "${GITHUB_OUTPUT}"
 
     - name: Download message artifact
-      if: ${{ steps.check_pr.outputs.proceed == "true"}} 
+      if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
       uses: actions/download-artifact@v5
       with:
         run_id: "${{ inputs.run_id }}"
@@ -102,7 +109,7 @@ jobs:
         github_token: ${{secrets.GITHUB_TOKEN}}
 
     - name: Check message artifact size
-      if: ${{ steps.check_pr.outputs.proceed == "true"}} 
+      if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
       id: load_artifact
       run: |
         SIZE=$(wc -c "${MESSAGE_FILE}"
@@ -115,7 +122,7 @@ jobs:
         echo "message=$(cat ${MESSAGE_FILE})" >> "${GITHUB_OUTPUT}"
 
     - name: Find previous PR comment
-      if: ${{ steps.check_pr.outputs.proceed == "true"}} 
+      if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
       uses: peter-evans/find-comment@v3
       id: find_comment
       with:
@@ -126,7 +133,7 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Acquire write access to PR
-      if: ${{ steps.check_pr.outputs.proceed == "true"}} 
+      if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
       id: acquire_write_token
       uses: actions/create-github-app-token@v2
       with:
@@ -134,7 +141,7 @@ jobs:
         private-key: ${{ secrets.CI_WORKFLOWS_PR_APP_PRIVATE_KEY }}
 
     - name: Create or update PR comment
-      if: ${{ steps.check_pr.outputs.proceed == "true"}} 
+      if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
       uses: peter-evans/create-or-update-comment@v4
       with:
         issue-number: ${{ inputs.pr_number }}
