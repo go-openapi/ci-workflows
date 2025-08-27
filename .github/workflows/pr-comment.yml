@@ -113,7 +113,7 @@ jobs:
       if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
       id: load_artifact
       run: |
-        SIZE=$(wc -c "${MESSAGE_FILE}"
+        SIZE=$(wc -c "${MESSAGE_FILE}")
         if [[ "${SIZE}" -gt "${{ env.MAX_MESSAGE_SIZE }}" ]] ; then
           # truncate the message up to MAX_MESSAGE_SIZE
           head -c ${{ env.MAX_MESSAGE_SIZE }} "${MESSAGE_FILE}" > /tmp/truncated
