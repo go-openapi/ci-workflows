@@ -64,7 +64,8 @@ jobs:
     steps:
     - name: Validate inputs
       run: |
-        if ! [[ "${{ env.TARGET }}" =~ "^go-openapi\/.*$" ]] ; then
+        rex='^go-openapi\/.*$'
+        if ! [[ "${{ env.TARGET }}" =~ $rex ]] ; then
           echo "This workflow only applies to target repos in github.com/go-openapi."
           exit 1
         fi
