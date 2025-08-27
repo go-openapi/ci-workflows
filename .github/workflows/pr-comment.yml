@@ -59,7 +59,6 @@ jobs:
   pr-comment:
     runs-on: ubuntu-latest
     env:
-      MESSAGE_FILE: "artifacts/${{ inputs.artifact_name}}"
       TARGET: "${{ inputs.target_repo }}"
     steps:
     - name: Validate inputs
@@ -101,26 +100,28 @@ jobs:
 
     - name: Download message artifact
       if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
+      id: download
       uses: actions/download-artifact@v5
       with:
-        run_id: "${{ inputs.run_id }}"
+        run-id: "${{ inputs.run_id }}"
         repository: "${{ env.TARGET }}"
         name: "${{ inputs.artifact_name }}"
         path: artifacts/
-        github_token: ${{secrets.GITHUB_TOKEN}}
+        github-token: ${{secrets.GITHUB_TOKEN}}
 
     - name: Check message artifact size
       if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
-      id: load_artifact
       run: |
+        MESSAGE_FILE="${{ steps.download.outputs.download-path }}/${{ inputs.artifact_name }}"
         SIZE=$(wc -c "${MESSAGE_FILE}")
         if [[ "${SIZE}" -gt "${{ env.MAX_MESSAGE_SIZE }}" ]] ; then
           # truncate the message up to MAX_MESSAGE_SIZE
           head -c ${{ env.MAX_MESSAGE_SIZE }} "${MESSAGE_FILE}" > /tmp/truncated
+          echo > /tmp/truncated
+          echo "... (truncated)" > /tmp/truncated
           mv /tmp/truncated "${MESSAGE_FILE}"
           echo "::warning:: comment message with size ${SIZE} has been truncated to ${{ env.MAX_MESSAGE_SIZE }} bytes."
         fi
-        echo "message=$(cat ${MESSAGE_FILE})" >> "${GITHUB_OUTPUT}"
 
     - name: Find previous PR comment
       if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
@@ -149,11 +150,10 @@ jobs:
         comment-id: ${{ steps.find_comment.outputs.comment-id }}
         reactions: ${{ inputs.reactions }}
         reactions-edit-mode: replace
-        body-path: ${{ env.MESSAGE_FILE }}
+        body-path: ${{ steps.download.outputs.download-path }}/${{ inputs.artifact_name }}
         edit-mode: replace
         token: ${{ steps.acquire_write_token.outputs.token }}
 
     - name: Notify
       run: |
         echo "::notice::Commented pull request ${{ inputs.pr_number }}"
-        echo "::debug::${{ steps.load_artifacts.outputs.message }}"
