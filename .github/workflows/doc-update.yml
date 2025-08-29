@@ -117,7 +117,7 @@ jobs:
     steps:
     - name: Format PR comment
       id: commentformatter
-      uses: skills/action-text-variables@v1
+      uses: skills/action-text-variables@v3
       with:
         template-vars: |
             text='${{ needs.lint-markdown.outputs.report }}'
