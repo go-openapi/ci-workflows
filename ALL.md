@@ -1,3 +1,5 @@
+This is a test of the spellcheck dictionary
+
 # Swagger 2.0 specification schema
 
 This folder contains the Swagger 2.0 specification schema files maintained here:
