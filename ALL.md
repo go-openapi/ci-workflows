@@ -1,6 +1,7 @@
 # Swagger 2.0 specification schema
 
 This folder contains the Swagger 2.0 specification schema files maintained here:
+BUMP
 
 https://github.com/reverb/swagger-spec/blob/master/schemas/v2.0# OpenAPI v2 object model [![Build Status](https://github.com/go-openapi/spec/actions/workflows/go-test.yml/badge.svg)](https://github.com/go-openapi/spec/actions?query=workflow%3A"go+test") [![codecov](https://codecov.io/gh/go-openapi/spec/branch/master/graph/badge.svg)](https://codecov.io/gh/go-openapi/spec)
 
