@@ -224,7 +224,7 @@ jobs:
       pr_sha:  ${{ steps.notify_markdown_congrats.pr_sha }}
       artifact_name:  ${{ steps.notify_markdown_congrats.artifact_name }}
       comment_title:  ${{ steps.notify_markdown_congrats.comment_title }}
-      reaction: ${{ steps.notify_markdown_congrats.reaction }}
+      reactions: ${{ steps.notify_markdown_congrats.reactions }}
     steps:
     - name: Congrats
       id: notify_markdown_congrats
@@ -248,7 +248,7 @@ jobs:
          echo "pr_sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
          echo "artifact_name=${{ env.markdown_artifact }}" >> "$GITHUB_OUTPUT"
          echo "comment_title=${{ env.markdown_comment_title }}" >> "$GITHUB_OUTPUT"
-         echo "reaction=hooray" >> "$GITHUB_OUTPUT"
+         echo "reactions=hooray" >> "$GITHUB_OUTPUT"
 
     - name: Upload comment as artifact
       uses: actions/upload-artifact@v4
@@ -268,7 +268,7 @@ jobs:
       pr_sha: ${{ needs.pr-markdown-congrats.outputs.pr_sha }}
       artifact_name: ${{ needs.pr-markdown-congrats.outputs.artifact_name }}
       comment_title: ${{ needs.pr-markdown-congrats.outputs.comment_title }}
-      reaction:  ${{ needs.pr-markdown-congrats.outputs.reaction }}
+      reactions:  ${{ needs.pr-markdown-congrats.outputs.reactions }}
 
   pr-markdown-report:
     needs: markdown-lint
@@ -280,7 +280,7 @@ jobs:
       pr_sha:  ${{ steps.notify_markdown_report.pr_sha }}
       artifact_name:  ${{ steps.notify_markdown_report.artifact_name }}
       comment_title:  ${{ steps.notify_markdown_report.comment_title }}
-      reaction: ${{ steps.notify_markdown_report.reaction }}
+      reactions: ${{ steps.notify_markdown_report.reactions }}
     runs-on: ubuntu-latest
     steps:
     - name: Format PR comment
@@ -333,7 +333,7 @@ jobs:
         echo "pr_sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
         echo "artifact_name=${{ env.markdown_artifact }}" >> "$GITHUB_OUTPUT"
         echo "comment_title=${{ env.markdown_comment_title }}" >> "$GITHUB_OUTPUT"
-        echo "reaction=confused" >> "$GITHUB_OUTPUT"
+        echo "reactions=confused" >> "$GITHUB_OUTPUT"
 
   pr-comment-markdown-report:
     name: Create or update comment with report
@@ -347,7 +347,7 @@ jobs:
       pr_sha: ${{ needs.pr-markdown-report.outputs.pr_sha }}
       artifact_name: ${{ needs.pr-markdown-report.outputs.artifact_name }}
       comment_title: ${{ needs.pr-markdown-report.outputs.comment_title }}
-      reaction:  ${{ needs.pr-markdown-report.outputs.reaction }}
+      reactions:  ${{ needs.pr-markdown-report.outputs.reactions }}
 
   pr-markdown-spelling-congrats:
     needs: markdown-spelling
@@ -359,7 +359,7 @@ jobs:
       pr_sha:  ${{ steps.notify_spelling_congrats.pr_sha }}
       artifact_name:  ${{ steps.notify_spelling_congrats.artifact_name }}
       comment_title:  ${{ steps.notify_spelling_congrats.comment_title }}
-      reaction: ${{ steps.notify_spelling_congrats.reaction }}
+      reactions: ${{ steps.notify_spelling_congrats.reactions }}
     runs-on: ubuntu-latest
     steps:
     - name: Congrats
@@ -380,7 +380,7 @@ jobs:
          echo "pr_sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
          echo "artifact_name=${{ env.spelling_artifact }}" >> "$GITHUB_OUTPUT"
          echo "comment_title=${{ env.spelling_comment_title }}" >> "$GITHUB_OUTPUT"
-         echo "reaction=hooray" >> "$GITHUB_OUTPUT"
+         echo "reactions=hooray" >> "$GITHUB_OUTPUT"
 
     - name: Upload comment as artifact
       uses: actions/upload-artifact@v4
@@ -400,7 +400,7 @@ jobs:
       pr_sha: ${{ needs.pr-markdown-spelling-congrats.outputs.pr_sha }}
       artifact_name: ${{ needs.pr-markdown-spelling-congrats.outputs.artifact_name }}
       comment_title: ${{ needs.pr-markdown-spelling-congrats.outputs.comment_title }}
-      reaction:  ${{ needs.pr-markdown-spelling-congrats.outputs.reaction }}
+      reactions:  ${{ needs.pr-markdown-spelling-congrats.outputs.reactions }}
 
   pr-markdown-spelling-report:
     needs: markdown-spelling
@@ -412,7 +412,7 @@ jobs:
       pr_sha:  ${{ steps.notify_spelling_report.pr_sha }}
       artifact_name:  ${{ steps.notify_spelling_report.artifact_name }}
       comment_title:  ${{ steps.notify_spelling_report.comment_title }}
-      reaction: ${{ steps.notify_spelling_report.reaction }}
+      reactions: ${{ steps.notify_spelling_report.reactions }}
     runs-on: ubuntu-latest
     steps:
     - name: Format PR comment
@@ -467,7 +467,7 @@ jobs:
         echo "pr_sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
         echo "artifact_name=${{ env.spelling_artifact }}" >> "$GITHUB_OUTPUT"
         echo "comment_title=${{ env.spelling_comment_title }}" >> "$GITHUB_OUTPUT"
-        echo "reaction=confused" >> "$GITHUB_OUTPUT"
+        echo "reactions=confused" >> "$GITHUB_OUTPUT"
 
   pr-comment-spelling-report:
     name: Create or update comment
@@ -481,4 +481,4 @@ jobs:
       pr_sha: ${{ needs.pr-markdown-spelling-report.outputs.pr_sha }}
       artifact_name: ${{ needs.pr-markdown-spelling-report.outputs.artifact_name }}
       comment_title: ${{ needs.pr-markdown-spelling-report.outputs.comment_title }}
-      reaction:  ${{ needs.pr-markdown-spelling-report.outputs.reaction }}
+      reactions:  ${{ needs.pr-markdown-spelling-report.outputs.reactions }}
