@@ -256,7 +256,7 @@ jobs:
     - name: Upload comment as artifact
       uses: actions/upload-artifact@v4
       with:
-        path: ${{ env.artifacts_dir }}
+        path: ${{ env.artifacts_dir }}/${{ env.markdown_artifact }}
         name: ${{ env.markdown_artifact }}
 
   pr-comment-markdown-congrats:
@@ -321,7 +321,7 @@ jobs:
     - name: Upload comment as artifact
       uses: actions/upload-artifact@v4
       with:
-        path: ${{ env.artifacts_dir }}
+        path: ${{ env.artifacts_dir }}/${{ env.markdown_artifact }}
         name: ${{ env.markdown_artifact }}
 
     - name: Notify
@@ -388,7 +388,7 @@ jobs:
     - name: Upload comment as artifact
       uses: actions/upload-artifact@v4
       with:
-        path: ${{ env.artifacts_dir }}
+        path: ${{ env.artifacts_dir }}/${{ env.spellcheck_artifact }}
         name: ${{ env.spellcheck_artifact }}
 
   pr-comment-spelling-congrats:
@@ -454,7 +454,7 @@ jobs:
       #   to write a comment in the PR.
       uses: actions/upload-artifact@v4
       with:
-        path: ${{ env.artifacts_dir }}
+        path: ${{ env.artifacts_dir }}/${{ env.spellcheck_artifact }}
         name: ${{ env.spellcheck_artifact }}
 
     - name: Notify
