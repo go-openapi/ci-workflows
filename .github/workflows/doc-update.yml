@@ -1,92 +1,124 @@
 name: doc update check
+# description: |
+#   This workflow is designed to help improve documentation quality.
+#
+#   It proceeds with markdown linting and checks spelling in markdown files every time a markdown file is changed
+#   in a pull request.
+#
+#   > NOTE: this workflow is only concerned with markdown documentation, not documentation in code (e.g. godoc).
+#
+#   ## Usage of github action features
+#
+#   * shared workflow
+#   * temporary token exchange using github app to elevate privileges within a trusted workflow
+#   * job summary (on actions UI)
+#
+#   ## Limitations of github action features
+#
+#     * [ ] did not find a way yet to retrieve the repo repo specified by the caller of this workflow.
+#           Had to resort to `master` to retrieve extra config files.
+#
+#   ## TODO
+#
+#     * [ ] to refactor repeated jobs as a matrix job? as separate workflow
+#     * [ ] should make an adapted version that runs on schedule and analyzes all markdown.
+#     * [ ] in this case, instead of commenting pull requests, it should raise issues.
+#     * [ ] should be able to retrieve config files and dictionary from the called ref, not master.
+#     * [ ] should be able to merge config files and dictionary with local definitions on target repo.
 
 on:
   workflow_call:
 
-# TODO:
-#  * [] spell checker
-
 permissions:
-  pull-requests: write
+  pull-requests: read
   contents: read
 
 env:
-  comment-title: Markdown linter
+  artifacts_dir: artifacts
+
+  markdown_comment_title: Markdown linter
+  markdown_config: '.github/.markdownlint.yml'
+  markdown_artifact: markdown_comment.txt
+
+  spellcheck_comment_title: Markdown spelling check
+  spellcheck_config: .github/.spellcheck.yml
+  spellcheck_dict: .github/.wordlist.txt
+  spellcheck_artifact: spellcheck_comment.txt
 
 jobs:
   markdown-changed:
     # description: |
-    # This performs a markdown lint whenever documentation files change
+    # This triggers a markdown and spellcheck lint whenever documentation files change.
     runs-on: ubuntu-latest
     outputs:
       proceed: ${{ steps.changed-markdown-files.outputs.any_changed }}
       all_changed_files: ${{ steps.changed-markdown-files.outputs.all_changed_files }}
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
+    - name: Originating repo checkout (e.g. public fork)
+      uses: actions/checkout@v5
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Get changed markdown files
-        uses: tj-actions/changed-files@v46
-        id: changed-markdown-files
-        with:
-          files: '**/*.md'
+    - name: Get changed markdown files
+      uses: tj-actions/changed-files@v46
+      id: changed-markdown-files
+      with:
+        files: '**/*.md'
 
-      - name: Notify
-        run: |
-          echo "::notice::Detected some changed markdown files"
-          echo "${{ steps.changed-markdown-files.outputs.all_changed_files }}"
+    - name: Notify
+      run: |
+        echo "::notice::Detected some changed markdown files"
+        echo "${{ steps.changed-markdown-files.outputs.all_changed_files }}"
 
-  lint-markdown:
+  markdown-lint:
     needs: markdown-changed
-    if: needs.markdown-changed.outputs.proceed == 'true'
+    if: ${{ needs.markdown-changed.outputs.proceed == 'true' }}
     runs-on: ubuntu-latest
     env:
       lintreport: './markdownlint-report.txt'
     outputs:
       proceed: ${{ steps.report-exists.outputs.proceed }}
+      congrats: ${{ steps.congrats.outputs.proceed }}
       report: ${{ steps.report-exists.outputs.report }}
 
     steps:
-    - name: Checkout Repo
+    - name: Originating repo checkout (e.g. public fork)
       uses: actions/checkout@v5
       with:
         ref: ${{ github.event.pull_request.head.sha }}
-        #ref: "refs/pull/${{ github.event.number }}/merge"  # it's okay to pull the user's changes: we just scan md's
+
+    - name: Checkout markdown config
+      uses: actions/checkout@v5
+      with:
+        repository: go-openapi/ci-workflows
+        ref: master  # TODO: retrieve workflow ref
+        sparse-checkout: |
+          ${{ env.markdown_config }}
+        sparse-checkout-cone-mode: false
+        path: ci-tools
+
+    - name: Copy markdown config
+      # TODO: merge with local if present
+      run: |
+        cp ci-tools/"${{ env.markdown_config}}" "${{ env.markdown_config }}"
 
     - name: Run markdown linter
       continue-on-error: true
       id: markdownlint
       uses: docker://avtodev/markdown-lint:v1.5
       with:
-        config: ./.github/.markdownlint.yml
+        config: ./${{ env.markdown_config }}
         args: '${{ needs.markdown-changed.outputs.all_changed_files }}'
         output: '${{ env.lintreport }}'
 
-    - name: Find previous PR comment
-      if: steps.markdownlint.outcome == 'success'
-      uses: peter-evans/find-comment@v3
-      id: findcomment
-      with:
-        issue-number:  ${{ github.event.pull_request.number }}
-        body-includes: ${{ env.comment-title }}
-        direction: last
-
     - name: Comment on success
-      if: steps.markdownlint.outcome == 'success'
+      if: ${{ steps.markdownlint.outcome == 'success' }}
       id: congrats
-      uses: peter-evans/create-or-update-comment@v4
-      with:
-        issue-number: ${{ github.event.pull_request.number }}
-        comment-id: ${{ steps.findcomment.outputs.comment-id }}
-        reactions: hooray
-        reactions-edit-mode: replace
-        body: |
-          ### ${{ env.comment-title }}
-           
-          Markdown looks good to me. Congrats!
+      run: |
+        echo "::notice:: no linting issue with changed markdown"
+        echo "proceed=true" >> $GITHUB_OUTPUT
 
-    - name: Check lint report exists
+    - name: Comment on markdown lint complaining
       if: ${{ steps.markdownlint.outcome != 'success' && hashFiles(env.lintreport) != '' }}
       id: report-exists
       run: |
@@ -109,50 +141,345 @@ jobs:
         echo "::error::markdown linter encountered an error"
         exit 1
 
-  pr-comment:
-    needs: lint-markdown
-    if: needs.lint-markdown.outputs.proceed == 'true'
+  markdown-spelling:
+    needs: markdown-changed
+    if: ${{ needs.markdown-changed.outputs.proceed == 'true' }}
     runs-on: ubuntu-latest
+    env:
+      spellcheckreport: './spellcheck-report.txt'
+    outputs:
+      proceed: ${{ steps.report-exists.outputs.proceed }}
+      congrats: ${{ steps.congrats.outputs.proceed }}
+      report: ${{ steps.report-exists.outputs.report }}
+    steps:
+    - uses: actions/checkout@v5
 
+    - name: Checkout spellcheck config
+      uses: actions/checkout@v5
+      with:
+        repository: go-openapi/ci-workflows
+        ref: master  # TODO: retrieve workflow ref
+        sparse-checkout: |
+          ${{ env.spellcheck_config }}
+          ${{ env.spellcheck_dict }}
+        sparse-checkout-cone-mode: false
+        path: ci-tools
+
+    - name: Copy spellcheck config
+      # TODO: merge with local if present
+      run: |
+        cp ci-tools/${{ env.spellcheck_config }} ${{ env.spellcheck_config }}
+        cp ci-tools/${{ env.spellcheck_dict }} ${{ env.spellcheck_dict }}
+
+    - name: Spellcheck
+      uses: rojopolis/spellcheck-github-actions@0.51.0
+      continue-on-error: true
+      id: spellcheck
+      with:
+        config_path: ${{ env.spellcheck_config }}
+        source_files: '${{ needs.markdown-changed.outputs.all_changed_files }}'
+        task_name: markdown
+        output_file: ${{ env.spellcheckreport }}
+
+    - name: Comment on success
+      if: ${{ steps.spellcheck.outcome == 'success' }}
+      id: congrats
+      run: |
+        echo "::notice:: no spelling issue with changed markdown"
+        echo "proceed=true" >> $GITHUB_OUTPUT
+
+        echo "### Your changes to markdown docs show impeccable spelling. 👍" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "> ℹ️ INFO: we use [rojopolis/spellcheck-github-actions](https://github.com/rojopolis/spellcheck-github-actions)" >> $GITHUB_STEP_SUMMARY
+
+    - name: Comment on spellcheck complaining
+      if: ${{ steps.spellcheck.outcome != 'success' && hashFiles(env.spellcheckreport) != '' }}
+      id: report-exists
+      run: |
+        echo 'report<<EOF' >> $GITHUB_OUTPUT
+        cat ${{ env.spellcheckreport }}|sed -e '$a\' >> $GITHUB_OUTPUT
+        echo 'EOF' >> $GITHUB_OUTPUT
+
+        if [[ "$(cat ${{ env.spellcheckreport }}|wc -l)" != "0" ]] ; then
+          echo "proceed=true" >> $GITHUB_OUTPUT
+          echo "::notice::Detected some spelling issues with changed markdown"
+          cat ${{ env.lintreport }}|sed -e '$a\'
+        else
+          echo "proceed=false" >> $GITHUB_OUTPUT
+          echo "::notice::No spelling issues with changed markdown"
+        fi
+
+    - name: Other linter errors
+      if: ${{ steps.spellcheck.outcome != 'success' && hashFiles(env.spellcheckreport) == '' }}
+      run: |
+        echo "::error::spellcheck encountered an error"
+        exit 1
+
+  pr-markdown-congrats:
+    needs: markdown-lint
+    if: ${{ needs.markdown-lint.outputs.congrats == 'true' }}
+    runs-on: ubuntu-latest
+    outputs:
+      run_id: ${{ steps.notify_markdown_congrats.outputs.run_id }}
+      target_repo: ${{ steps.notify_markdown_congrats.outputs.target_repo }}
+      pr_number:  ${{ steps.notify_markdown_congrats.outputs.pr_number }}
+      pr_sha:  ${{ steps.notify_markdown_congrats.outputs.pr_sha }}
+      artifact_name:  ${{ steps.notify_markdown_congrats.outputs.artifact_name }}
+      comment_title:  ${{ steps.notify_markdown_congrats.outputs.comment_title }}
+      reactions: ${{ steps.notify_markdown_congrats.outputs.reactions }}
+    steps:
+    - name: Congrats
+      id: notify_markdown_congrats
+      run: |
+         mkdir -p "${{ env.artifacts_dir }}"
+         read -d '' MSG<<EOF
+         ### ${{ env.markdown_comment_title }}
+           
+         Markdown looks good to me. 👍
+         EOF
+
+         export MSG
+         printenv MSG > "${{ env.artifacts_dir}}/${{ env.markdown_artifact }}"
+
+         echo "### Your changes to markdown docs look good. 👍" >> $GITHUB_STEP_SUMMARY
+         echo "" >> $GITHUB_STEP_SUMMARY
+         echo "> ℹ️ INFO: we use [avtodev/markdown-lint action](https://github.com/avto-dev/markdown-lint)" >> $GITHUB_STEP_SUMMARY
+
+         echo "run_id=${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+         echo "target_repo=${{ github.repository }}" >> "$GITHUB_OUTPUT"
+         echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+         echo "pr_sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+         echo "artifact_name=${{ env.markdown_artifact }}" >> "$GITHUB_OUTPUT"
+         echo "comment_title=${{ env.markdown_comment_title }}" >> "$GITHUB_OUTPUT"
+         echo "reactions=hooray" >> "$GITHUB_OUTPUT"
+
+    - name: Upload comment as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        path: ${{ env.artifacts_dir }}/${{ env.markdown_artifact }}
+        name: ${{ env.markdown_artifact }}
+
+  pr-comment-markdown-congrats:
+    name: Create or update congrats comment
+    needs: pr-markdown-congrats
+    uses: go-openapi/ci-workflows/.github/workflows/pr-comment.yml@master #  <- TODO: caller's ref
+    secrets: inherit
+    with:
+      run_id: ${{ needs.pr-markdown-congrats.outputs.run_id }}
+      target_repo: ${{ needs.pr-markdown-congrats.outputs.target_repo }}
+      pr_number: ${{ needs.pr-markdown-congrats.outputs.pr_number }}
+      pr_sha: ${{ needs.pr-markdown-congrats.outputs.pr_sha }}
+      artifact_name: ${{ needs.pr-markdown-congrats.outputs.artifact_name }}
+      comment_title: ${{ needs.pr-markdown-congrats.outputs.comment_title }}
+      reactions:  ${{ needs.pr-markdown-congrats.outputs.reactions }}
+
+  pr-markdown-report:
+    needs: markdown-lint
+    if: ${{ needs.markdown-lint.outputs.proceed == 'true' }}
+    outputs:
+      run_id: ${{ steps.notify_markdown_report.outputs.run_id }}
+      target_repo: ${{ steps.notify_markdown_report.outputs.target_repo }}
+      pr_number:  ${{ steps.notify_markdown_report.outputs.pr_number }}
+      pr_sha:  ${{ steps.notify_markdown_report.outputs.pr_sha }}
+      artifact_name:  ${{ steps.notify_markdown_report.outputs.artifact_name }}
+      comment_title:  ${{ steps.notify_markdown_report.outputs.comment_title }}
+      reactions: ${{ steps.notify_markdown_report.outputs.reactions }}
+    runs-on: ubuntu-latest
     steps:
     - name: Format PR comment
-      id: commentformatter
-      uses: skills/action-text-variables@v1
+      id: comment_formatter
+      uses: skills/action-text-variables@v3
       with:
-        template-vars: |
-            text='${{ needs.lint-markdown.outputs.report }}'
+        template-vars: >
+          {
+            "text": ${{ toJSON(needs.markdown-lint.outputs.report) }}
+          }
         template-text: |
-            ### ${{ env.comment-title }}
+          ### ${{ env.markdown_comment_title }}
             
-            Some markdown linting issues were detected in the modified .md files.
+          Some markdown linting issues were detected in the modified .md files. ⚠️
 
-            Perhaps they were already there before your changes.
+          Perhaps they were already there before your changes.
 
-            This check is advisory only and not blocking. Please help us adopt a nice markdown style.
+          This check is advisory only and not blocking. Please help us adopt a nice markdown style.
 
-            Markdown formatting rules are documented [here](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md).
-            <br> 
-            {{ text }}
+          Markdown formatting rules are documented [here](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md).
+          <br> 
+          {{ text }}
 
-    - name: Find previous PR comment
-      uses: peter-evans/find-comment@v3
-      id: findcomment
+    - name: Slap on the wrist
+      env:
+        OUTPUT: "${{ steps.comment_formatter.outputs.updated-text }}"
+      run: |
+         mkdir -p "${{ env.artifacts_dir }}"
+         printenv OUTPUT > "${{ env.artifacts_dir}}/${{ env.markdown_artifact }}"
+
+         echo "### Changed markdown docs need some formatting. ⚠️" >> $GITHUB_STEP_SUMMARY
+         echo "" >> $GITHUB_STEP_SUMMARY
+         echo "> ℹ️ INFO: we use [avtodev/markdown-lint action](https://github.com/avto-dev/markdown-lint)" >> $GITHUB_STEP_SUMMARY
+
+    - name: Upload comment as artifact
+      uses: actions/upload-artifact@v4
       with:
-        issue-number:  ${{ github.event.pull_request.number }}
-        body-includes: ${{ env.comment-title }}
-        direction: last
-
-    - name: Create or update PR comment
-      uses: peter-evans/create-or-update-comment@v4
-      with:
-        issue-number: ${{ github.event.pull_request.number }}
-        comment-id: ${{ steps.findcomment.outputs.comment-id }}
-        reactions: confused
-        reactions-edit-mode: replace
-        body: ${{ steps.commentformatter.outputs.updated-text }}
-        edit-mode: replace
+        path: ${{ env.artifacts_dir }}/${{ env.markdown_artifact }}
+        name: ${{ env.markdown_artifact }}
 
     - name: Notify
+      id: notify_markdown_report
       run: |
         echo "::notice::Commented pull request ${{ github.event.pull_request.number }}"
-        echo "::debug::${{ steps.commentformatter.outputs.updated-text }}"
+
+        echo "run_id=${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+        echo "target_repo=${{ github.repository }}" >> "$GITHUB_OUTPUT"
+        echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+        echo "pr_sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+        echo "artifact_name=${{ env.markdown_artifact }}" >> "$GITHUB_OUTPUT"
+        echo "comment_title=${{ env.markdown_comment_title }}" >> "$GITHUB_OUTPUT"
+        echo "reactions=confused" >> "$GITHUB_OUTPUT"
+
+  pr-comment-markdown-report:
+    name: Create or update comment with report
+    needs: pr-markdown-report
+    uses: go-openapi/ci-workflows/.github/workflows/pr-comment.yml@master #  <- TODO: caller's ref
+    secrets: inherit
+    with:
+      run_id: ${{ needs.pr-markdown-report.outputs.run_id }}
+      target_repo: ${{ needs.pr-markdown-report.outputs.target_repo }}
+      pr_number: ${{ needs.pr-markdown-report.outputs.pr_number }}
+      pr_sha: ${{ needs.pr-markdown-report.outputs.pr_sha }}
+      artifact_name: ${{ needs.pr-markdown-report.outputs.artifact_name }}
+      comment_title: ${{ needs.pr-markdown-report.outputs.comment_title }}
+      reactions:  ${{ needs.pr-markdown-report.outputs.reactions }}
+
+  pr-markdown-spelling-congrats:
+    needs: markdown-spelling
+    if: ${{ needs.markdown-spelling.outputs.congrats == 'true' }}
+    outputs:
+      run_id: ${{ steps.notify_spelling_congrats.outputs.run_id }}
+      target_repo: ${{ steps.notify_spelling_congrats.outputs.target_repo }}
+      pr_number:  ${{ steps.notify_spelling_congrats.outputs.pr_number }}
+      pr_sha:  ${{ steps.notify_spelling_congrats.outputs.pr_sha }}
+      artifact_name:  ${{ steps.notify_spelling_congrats.outputs.artifact_name }}
+      comment_title:  ${{ steps.notify_spelling_congrats.outputs.comment_title }}
+      reactions: ${{ steps.notify_spelling_congrats.outputs.reactions }}
+    runs-on: ubuntu-latest
+    steps:
+    - name: Congrats
+      id: notify_spelling_congrats
+      run: |
+         mkdir -p artifacts
+         read -d '' MSG<<EOF
+         ### ${{ env.spellcheck_comment_title }}
+           
+         Spelling in mardown looks good to me. 👍
+         EOF
+
+         export MSG
+         printenv MSG > "${{ env.artifacts_dir }}/${{ env.spellcheck_artifact }}"
+
+         echo "run_id=${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+         echo "target_repo=${{ github.repository }}" >> "$GITHUB_OUTPUT"
+         echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+         echo "pr_sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+         echo "artifact_name=${{ env.spellcheck_artifact }}" >> "$GITHUB_OUTPUT"
+         echo "comment_title=${{ env.spellcheck_comment_title }}" >> "$GITHUB_OUTPUT"
+         echo "reactions=hooray" >> "$GITHUB_OUTPUT"
+
+    - name: Upload comment as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        path: ${{ env.artifacts_dir }}/${{ env.spellcheck_artifact }}
+        name: ${{ env.spellcheck_artifact }}
+
+  pr-comment-spelling-congrats:
+    name: Create or update comment
+    needs: pr-markdown-spelling-congrats
+    uses: go-openapi/ci-workflows/.github/workflows/pr-comment.yml@master #  <- TODO: caller's ref
+    secrets: inherit
+    with:
+      run_id: ${{ needs.pr-markdown-spelling-congrats.outputs.run_id }}
+      target_repo: ${{ needs.pr-markdown-spelling-congrats.outputs.target_repo }}
+      pr_number: ${{ needs.pr-markdown-spelling-congrats.outputs.pr_number }}
+      pr_sha: ${{ needs.pr-markdown-spelling-congrats.outputs.pr_sha }}
+      artifact_name: ${{ needs.pr-markdown-spelling-congrats.outputs.artifact_name }}
+      comment_title: ${{ needs.pr-markdown-spelling-congrats.outputs.comment_title }}
+      reactions:  ${{ needs.pr-markdown-spelling-congrats.outputs.reactions }}
+
+  pr-markdown-spelling-report:
+    needs: markdown-spelling
+    if: ${{ needs.markdown-spelling.outputs.proceed == 'true' }}
+    outputs:
+      run_id: ${{ steps.notify_spelling_report.outputs.run_id }}
+      target_repo: ${{ steps.notify_spelling_report.outputs.target_repo }}
+      pr_number:  ${{ steps.notify_spelling_report.outputs.pr_number }}
+      pr_sha:  ${{ steps.notify_spelling_report.outputs.pr_sha }}
+      artifact_name:  ${{ steps.notify_spelling_report.outputs.artifact_name }}
+      comment_title:  ${{ steps.notify_spelling_report.outputs.comment_title }}
+      reactions: ${{ steps.notify_spelling_report.outputs.reactions }}
+    runs-on: ubuntu-latest
+    steps:
+    - name: Format PR comment
+      id: comment_formatter
+      uses: skills/action-text-variables@v3
+      with:
+        template-vars: >
+          {
+            "text": ${{ toJSON(needs.markdown-spelling.outputs.report) }}
+          }
+        template-text: |
+          ### ${{ env.spelling_comment_title }}
+            
+          Some mispelled words were detected in the modified .md files. ⚠️
+
+          Perhaps they were already there before your changes.
+
+          This check is advisory only and not blocking. Please help us improve our documentation.
+          <br> 
+          {{ text }}
+
+    - name: Slap on the wrist
+      env:
+        OUTPUT: "${{ steps.comment_formatter.outputs.updated-text }}"
+      run: |
+         mkdir -p "${{ env.artifacts_dir }}"
+         printenv OUTPUT > "${{ env.artifacts_dir}}/${{ env.spellcheck_artifact }}"
+
+         echo "### Changed markdown docs show some mispelled words. ⚠️" >> $GITHUB_STEP_SUMMARY
+         echo "" >> $GITHUB_STEP_SUMMARY
+         echo "> ℹ️ INFO: we use [rojopolis/spellcheck-github-actions](https://github.com/rojopolis/spellcheck-github-actions)" >> $GITHUB_STEP_SUMMARY
+
+    - name: Upload comment as artifact
+      # description: |
+      #   Calls a trusted shared workflow that temporarily elevates the caller's privileges
+      #   to write a comment in the PR.
+      uses: actions/upload-artifact@v4
+      with:
+        path: ${{ env.artifacts_dir }}/${{ env.spellcheck_artifact }}
+        name: ${{ env.spellcheck_artifact }}
+
+    - name: Notify
+      id: notify_spelling_report
+      run: |
+        echo "::notice::Commented pull request ${{ github.event.pull_request.number }}"
+
+        echo "run_id=${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+        echo "target_repo=${{ github.repository }}" >> "$GITHUB_OUTPUT"
+        echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+        echo "pr_sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+        echo "artifact_name=${{ env.spelling_artifact }}" >> "$GITHUB_OUTPUT"
+        echo "comment_title=${{ env.spelling_comment_title }}" >> "$GITHUB_OUTPUT"
+        echo "reactions=confused" >> "$GITHUB_OUTPUT"
+
+  pr-comment-spelling-report:
+    name: Create or update comment
+    needs: pr-markdown-spelling-report
+    secrets: inherit
+    uses: ./.github/workflows/pr-comment.yml
+    with:
+      run_id: ${{ needs.pr-markdown-spelling-report.outputs.run_id }}
+      target_repo: ${{ needs.pr-markdown-spelling-report.outputs.target_repo }}
+      pr_number: ${{ needs.pr-markdown-spelling-report.outputs.pr_number }}
+      pr_sha: ${{ needs.pr-markdown-spelling-report.outputs.pr_sha }}
+      artifact_name: ${{ needs.pr-markdown-spelling-report.outputs.artifact_name }}
+      comment_title: ${{ needs.pr-markdown-spelling-report.outputs.comment_title }}
+      reactions:  ${{ needs.pr-markdown-spelling-report.outputs.reactions }}
