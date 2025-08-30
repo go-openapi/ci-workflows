@@ -34,14 +34,16 @@ permissions:
   contents: read
 
 env:
+  artifacts_dir: artifacts
+
   markdown_comment_title: Markdown linter
   markdown_config: '.github/.markdownlint.yml'
   markdown_artifact: markdown_comment.txt
 
   spellcheck_comment_title: Markdown spelling check
-  spellcheck_artifact: spellcheck_comment.txt
   spellcheck_config: .github/.spellcheck.yml
   spellcheck_dict: .github/.wordlist.txt
+  spellcheck_artifact: spellcheck_comment.txt
 
 jobs:
   markdown-changed:
