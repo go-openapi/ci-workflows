@@ -78,7 +78,7 @@ jobs:
       lintreport: './markdownlint-report.txt'
     outputs:
       proceed: ${{ steps.report-exists.outputs.proceed }}
-      congrats: ${{ steps.congrats.output.proceed }}
+      congrats: ${{ steps.congrats.outputs.proceed }}
       report: ${{ steps.report-exists.outputs.report }}
 
     steps:
@@ -149,7 +149,7 @@ jobs:
       spellcheckreport: './spellcheck-report.txt'
     outputs:
       proceed: ${{ steps.report-exists.outputs.proceed }}
-      congrats: ${{ steps.congrats.output.proceed }}
+      congrats: ${{ steps.congrats.outputs.proceed }}
       report: ${{ steps.report-exists.outputs.report }}
     steps:
     - uses: actions/checkout@v5
@@ -220,13 +220,13 @@ jobs:
     if: ${{ needs.markdown-lint.outputs.congrats == 'true' }}
     runs-on: ubuntu-latest
     outputs:
-      run_id: ${{ steps.notify_markdown_congrats.run_id }}
-      target_repo: ${{ steps.notify_markdown_congrats.target_repo }}
-      pr_number:  ${{ steps.notify_markdown_congrats.pr_number }}
-      pr_sha:  ${{ steps.notify_markdown_congrats.pr_sha }}
-      artifact_name:  ${{ steps.notify_markdown_congrats.artifact_name }}
-      comment_title:  ${{ steps.notify_markdown_congrats.comment_title }}
-      reactions: ${{ steps.notify_markdown_congrats.reactions }}
+      run_id: ${{ steps.notify_markdown_congrats.outputs.run_id }}
+      target_repo: ${{ steps.notify_markdown_congrats.outputs.target_repo }}
+      pr_number:  ${{ steps.notify_markdown_congrats.outputs.pr_number }}
+      pr_sha:  ${{ steps.notify_markdown_congrats.outputs.pr_sha }}
+      artifact_name:  ${{ steps.notify_markdown_congrats.outputs.artifact_name }}
+      comment_title:  ${{ steps.notify_markdown_congrats.outputs.comment_title }}
+      reactions: ${{ steps.notify_markdown_congrats.outputs.reactions }}
     steps:
     - name: Congrats
       id: notify_markdown_congrats
@@ -238,7 +238,8 @@ jobs:
          Markdown looks good to me. 👍
          EOF
 
-         echo "${MSG}" > "${{ env.artifacts_dir}}/${{ env.markdown_artifact }}"
+         export MSG
+         printenv MSG > "${{ env.artifacts_dir}}/${{ env.markdown_artifact }}"
 
          echo "### Your changes to markdown docs look good. 👍" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
@@ -276,13 +277,13 @@ jobs:
     needs: markdown-lint
     if: ${{ needs.markdown-lint.outputs.proceed == 'true' }}
     outputs:
-      run_id: ${{ steps.notify_markdown_report.run_id }}
-      target_repo: ${{ steps.notify_markdown_report.target_repo }}
-      pr_number:  ${{ steps.notify_markdown_report.pr_number }}
-      pr_sha:  ${{ steps.notify_markdown_report.pr_sha }}
-      artifact_name:  ${{ steps.notify_markdown_report.artifact_name }}
-      comment_title:  ${{ steps.notify_markdown_report.comment_title }}
-      reactions: ${{ steps.notify_markdown_report.reactions }}
+      run_id: ${{ steps.notify_markdown_report.outputs.run_id }}
+      target_repo: ${{ steps.notify_markdown_report.outputs.target_repo }}
+      pr_number:  ${{ steps.notify_markdown_report.outputs.pr_number }}
+      pr_sha:  ${{ steps.notify_markdown_report.outputs.pr_sha }}
+      artifact_name:  ${{ steps.notify_markdown_report.outputs.artifact_name }}
+      comment_title:  ${{ steps.notify_markdown_report.outputs.comment_title }}
+      reactions: ${{ steps.notify_markdown_report.outputs.reactions }}
     runs-on: ubuntu-latest
     steps:
     - name: Format PR comment
@@ -354,13 +355,13 @@ jobs:
     needs: markdown-spelling
     if: ${{ needs.markdown-spelling.outputs.congrats == 'true' }}
     outputs:
-      run_id: ${{ steps.notify_spelling_congrats.run_id }}
-      target_repo: ${{ steps.notify_spelling_congrats.target_repo }}
-      pr_number:  ${{ steps.notify_spelling_congrats.pr_number }}
-      pr_sha:  ${{ steps.notify_spelling_congrats.pr_sha }}
-      artifact_name:  ${{ steps.notify_spelling_congrats.artifact_name }}
-      comment_title:  ${{ steps.notify_spelling_congrats.comment_title }}
-      reactions: ${{ steps.notify_spelling_congrats.reactions }}
+      run_id: ${{ steps.notify_spelling_congrats.outputs.run_id }}
+      target_repo: ${{ steps.notify_spelling_congrats.outputs.target_repo }}
+      pr_number:  ${{ steps.notify_spelling_congrats.outputs.pr_number }}
+      pr_sha:  ${{ steps.notify_spelling_congrats.outputs.pr_sha }}
+      artifact_name:  ${{ steps.notify_spelling_congrats.outputs.artifact_name }}
+      comment_title:  ${{ steps.notify_spelling_congrats.outputs.comment_title }}
+      reactions: ${{ steps.notify_spelling_congrats.outputs.reactions }}
     runs-on: ubuntu-latest
     steps:
     - name: Congrats
@@ -373,7 +374,8 @@ jobs:
          Spelling in mardown looks good to me. 👍
          EOF
 
-         echo "${MSG}" > "${{ env.artifacts_dir }}/${{ env.spellcheck_artifact }}"
+         export MSG
+         printenv MSG > "${{ env.artifacts_dir }}/${{ env.spellcheck_artifact }}"
 
          echo "run_id=${{ github.run_id }}" >> "$GITHUB_OUTPUT"
          echo "target_repo=${{ github.repository }}" >> "$GITHUB_OUTPUT"
@@ -407,13 +409,13 @@ jobs:
     needs: markdown-spelling
     if: ${{ needs.markdown-spelling.outputs.proceed == 'true' }}
     outputs:
-      run_id: ${{ steps.notify_spelling_report.run_id }}
-      target_repo: ${{ steps.notify_spelling_report.target_repo }}
-      pr_number:  ${{ steps.notify_spelling_report.pr_number }}
-      pr_sha:  ${{ steps.notify_spelling_report.pr_sha }}
-      artifact_name:  ${{ steps.notify_spelling_report.artifact_name }}
-      comment_title:  ${{ steps.notify_spelling_report.comment_title }}
-      reactions: ${{ steps.notify_spelling_report.reactions }}
+      run_id: ${{ steps.notify_spelling_report.outputs.run_id }}
+      target_repo: ${{ steps.notify_spelling_report.outputs.target_repo }}
+      pr_number:  ${{ steps.notify_spelling_report.outputs.pr_number }}
+      pr_sha:  ${{ steps.notify_spelling_report.outputs.pr_sha }}
+      artifact_name:  ${{ steps.notify_spelling_report.outputs.artifact_name }}
+      comment_title:  ${{ steps.notify_spelling_report.outputs.comment_title }}
+      reactions: ${{ steps.notify_spelling_report.outputs.reactions }}
     runs-on: ubuntu-latest
     steps:
     - name: Format PR comment
@@ -438,7 +440,6 @@ jobs:
     - name: Slap on the wrist
       env:
         OUTPUT: "${{ steps.comment_formatter.outputs.updated-text }}"
-      id: notify_spelling_repo
       run: |
          mkdir -p "${{ env.artifacts_dir }}"
          printenv OUTPUT > "${{ env.artifacts_dir}}/${{ env.spellcheck_artifact }}"
@@ -457,7 +458,7 @@ jobs:
         name: ${{ env.spellcheck_artifact }}
 
     - name: Notify
-      id: spelling_report_notify
+      id: notify_spelling_report
       run: |
         echo "::notice::Commented pull request ${{ github.event.pull_request.number }}"
 
