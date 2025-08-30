@@ -30,7 +30,7 @@ on:
   workflow_call:
 
 permissions:
-  pull-requests: read
+  pull-requests: write
   contents: read
 
 env:
@@ -466,14 +466,14 @@ jobs:
         echo "target_repo=${{ github.repository }}" >> "$GITHUB_OUTPUT"
         echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
         echo "pr_sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
-        echo "artifact_name=${{ env.spelling_artifact }}" >> "$GITHUB_OUTPUT"
-        echo "comment_title=${{ env.spelling_comment_title }}" >> "$GITHUB_OUTPUT"
+        echo "artifact_name=${{ env.spellcheck_artifact }}" >> "$GITHUB_OUTPUT"
+        echo "comment_title=${{ env.spellcheck_comment_title }}" >> "$GITHUB_OUTPUT"
         echo "reactions=confused" >> "$GITHUB_OUTPUT"
 
   pr-comment-spelling-report:
     name: Create or update comment
     needs: pr-markdown-spelling-report
-    secrets: inherit
+    secrets: inherits
     uses: ./.github/workflows/pr-comment.yml
     with:
       run_id: ${{ needs.pr-markdown-spelling-report.outputs.run_id }}

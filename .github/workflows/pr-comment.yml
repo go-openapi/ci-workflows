@@ -113,7 +113,7 @@ jobs:
       if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
       run: |
         MESSAGE_FILE="${{ steps.download.outputs.download-path }}/${{ inputs.artifact_name }}"
-        SIZE=$(wc -c "${MESSAGE_FILE}")
+        SIZE=$(cat "${MESSAGE_FILE}"|wc -c)
         if [[ "${SIZE}" -gt "${{ env.MAX_MESSAGE_SIZE }}" ]] ; then
           # truncate the message up to MAX_MESSAGE_SIZE
           head -c ${{ env.MAX_MESSAGE_SIZE }} "${MESSAGE_FILE}" > /tmp/truncated
@@ -134,13 +134,15 @@ jobs:
         direction: last
         token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Acquire write access to PR
-      if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
-      id: acquire_write_token
-      uses: actions/create-github-app-token@v2
-      with:
-        app-id: ${{ secrets.CI_WORKFLOWS_PR_APP_ID }}
-        private-key: ${{ secrets.CI_WORKFLOWS_PR_APP_PRIVATE_KEY }}
+    #- name: Acquire write access to PR
+    #  if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
+    #  id: acquire_write_token
+    #  uses: actions/create-github-app-token@v2
+    #  with:
+    #    app-id: ${{ secrets.CI_WORKFLOWS_PR_APP_ID }}
+    #    private-key: ${{ secrets.CI_WORKFLOWS_PR_APP_PRIVATE_KEY }}
+    #    owner: go-openapi
+    #    repo: ${{ inputs.target_repo }}
 
     - name: Create or update PR comment
       if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
@@ -152,7 +154,7 @@ jobs:
         reactions-edit-mode: replace
         body-path: ${{ steps.download.outputs.download-path }}/${{ inputs.artifact_name }}
         edit-mode: replace
-        token: ${{ steps.acquire_write_token.outputs.token }}
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Notify
       run: |
