@@ -327,7 +327,6 @@ jobs:
       id: notify_markdown_report
       run: |
         echo "::notice::Commented pull request ${{ github.event.pull_request.number }}"
-        echo "::debug::${{ steps.comment_formatter.outputs.updated-text }}"
 
         echo "run_id=${{ github.run_id }}" >> "$GITHUB_OUTPUT"
         echo "target_repo=${{ github.repository }}" >> "$GITHUB_OUTPUT"
@@ -461,7 +460,6 @@ jobs:
       id: spelling_report_notify
       run: |
         echo "::notice::Commented pull request ${{ github.event.pull_request.number }}"
-        echo "::debug::${{ steps.comment_formatter.outputs.updated-text }}"
 
         echo "run_id=${{ github.run_id }}" >> "$GITHUB_OUTPUT"
         echo "target_repo=${{ github.repository }}" >> "$GITHUB_OUTPUT"
