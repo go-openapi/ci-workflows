@@ -5,11 +5,11 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/go-openapi/ci-workflows.svg)](https://pkg.go.dev/github.com/go-openapi/ci-workflows)
 [![Go Report Card](https://goreportcard.com/badge/github.com/go-openapi/ci-workflows)](https://goreportcard.com/report/github.com/go-openapi/ci-workflows)
 
-Common CI workflows and setup for go-openapi repos.
+Common Continuous Integration (`CI`) workflows and setup for go-openapi repos.
 
 * shared github action workflows
-* shared dependabot config (TODO)
-* shared golangci config (**BLOCKED**)
+* shared `dependabot` configuration (TODO)
+* shared `golangci-lint` configuration (**BLOCKED**)
 
 > NOTE: at this moment, it is difficult to share the golangci-lint config,
 > so that one is not shared yet.
@@ -28,12 +28,14 @@ In no particular order:
 
 * [x] ui: enrich github actions UI with a job summary
 * [x] doc: add markdown linting for docs
-* [ ] doc: add spellcheck for docs (and code?)
+* [x] doc: add spellcheck for docs (and code?)
+* [x] introduce config file specific checkout (markdownlint, spellcheck)
+* [x] security: separate PR / issue comments as a trusted bot workflow, acting on request artifacts
 * [ ] version common workflows, so we can limit the impact of a change
 * [ ] build: verify that go.sum cache for tests works (should be enabled)
 * [ ] share mono repo workflows (see github.com/go-openapi/swag/.github/workflows)
 * [ ] lint: manage somehow to share golangci config (with local merge)
-* [ ] deps: manage somehow to share / replicate dependabot config
+* [ ] dependencies: manage somehow to share / replicate dependabot config
 * [ ] lint: golangci-lint: check valid PR comments etc
 * [ ] lint: use non-blocking, scheduled, proactive full linting to check for
       the impact of new linters, new go versions etc
@@ -45,3 +47,8 @@ In no particular order:
 * [ ] check with github API that all repo settings (branch protection rules, etc)
       are identical
 * [ ] comment PRs and issues
+* [ ] doc: checkout vale style-check guide (vale-action exists)
+* [ ] doc: experiment LanguageTool for grammar checks ( -> a github action / docker image exists)
+* [ ] doc: experiment LLM from github model, using embeddings ( -> 
+* [ ] issues: experiment LLM from github model, using embeddings ( -> show related issues)
+* [ ] github pages w/ hugo (like go-swagger, experiment another theme and json data)
