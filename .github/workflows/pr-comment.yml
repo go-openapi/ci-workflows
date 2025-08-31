@@ -68,8 +68,8 @@ jobs:
           echo "This workflow only applies to target repos in github.com/go-openapi."
           exit 1
         fi
-        if [[ "${{ inputs.artifact_name }}" != "markdown_comment.txt" && "${{ inputs.artifact_name }}" != "spelling_comment.txt" ]] ; then
-          echo "This workflow only applies to artifacts named markdown_comment.txt or spelling_comment.txt"
+        if [[ "${{ inputs.artifact_name }}" != "markdown_comment.txt" && "${{ inputs.artifact_name }}" != "spellcheck_comment.txt" ]] ; then
+          echo "This workflow only applies to artifacts named markdown_comment.txt or spellcheck_comment.txt"
           exit 1
         fi
 
