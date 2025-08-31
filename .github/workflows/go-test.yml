@@ -19,6 +19,7 @@ name: go test
 #           like all repos to allow users to fork, lint and run just like they were independent,
 #           and not impose some "invisible linter" check.
 #     * [ ] we need to make a specific version for mono-repos. For now, only go-openapi swag is a mono-repo.
+#     * [ ] detect minimum required go version in go.mod and run a test for that one
 
 on:
   workflow_call:
