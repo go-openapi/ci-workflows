@@ -117,10 +117,10 @@ jobs:
         if [[ "${SIZE}" -gt "${{ env.MAX_MESSAGE_SIZE }}" ]] ; then
           # truncate the message up to MAX_MESSAGE_SIZE
           head -c ${{ env.MAX_MESSAGE_SIZE }} "${MESSAGE_FILE}" > /tmp/truncated
-          echo > /tmp/truncated
-          echo "... (truncated)" > /tmp/truncated
+          echo >> /tmp/truncated
+          echo "... (truncated)" >> /tmp/truncated
           mv /tmp/truncated "${MESSAGE_FILE}"
-          echo "::warning:: comment message with size ${SIZE} has been truncated to ${{ env.MAX_MESSAGE_SIZE }} bytes."
+          echo "::warning:: ${{ inputs.artifact_name }} comment message with size ${SIZE} has been truncated to ${{ env.MAX_MESSAGE_SIZE }} bytes."
         fi
 
     - name: Find previous PR comment
@@ -148,4 +148,4 @@ jobs:
 
     - name: Notify
       run: |
-        echo "::notice::Commented pull request ${{ inputs.pr_number }}"
+        echo "::notice::Commented pull request ${{ inputs.pr_number }} with ${{ inputs.artifact_name }}"
