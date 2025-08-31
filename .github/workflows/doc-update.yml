@@ -25,6 +25,7 @@ name: doc update check
 #     * [ ] should be able to retrieve config files and dictionary from the called ref, not master.
 #     * [ ] should be able to merge config files and dictionary with local definitions on target repo.
 #     * [ ] should be able to work on diff
+#     * [ ] should format the output of spellcheck report
 
 on:
   workflow_call:
@@ -122,6 +123,7 @@ jobs:
       if: ${{ steps.markdownlint.outcome != 'success' && hashFiles(env.lintreport) != '' }}
       id: report-exists
       run: |
+        # summarizes a bit the output from spellcheck
         echo 'report<<EOF' >> $GITHUB_OUTPUT
         cat ${{ env.lintreport }}|sed -e '$a\' >> $GITHUB_OUTPUT
         echo 'EOF' >> $GITHUB_OUTPUT
@@ -423,13 +425,33 @@ jobs:
       reactions: ${{ steps.notify_spelling_report.outputs.reactions }}
     runs-on: ubuntu-latest
     steps:
+    - name: Pre-process spellcheck report
+      id: preprocess
+      env: 
+        MSG: ${{ needs.markdown-spelling.outputs.report }}
+        SED_CMD: .github/workflows/filter.sed # a sed script to parse and reformat the spellcheck report
+        JQ_CMD: .github/workflows/merge.jq # a jq script to dedupe spellcheck reports by file
+        TMPFILE: /tmp/spellcheck-report.txt
+      run: |
+        export MSG
+        printenv MSG > "${TMPFILE}"
+        # produces a JSON object:
+        # {
+        #   "file.md": [ mispelled word [, ...]]
+        # }
+        cat "${TMPFILE}" | sed -n  -f "${SED_CMD}" | jq -s "${JQ_CMD}" > /tmp/preprocessed.txt
+
+        echo 'report<<EOF' >> $GITHUB_OUTPUT
+        cat /tmp/preprocessed.txt|sed -e '$a\' >> $GITHUB_OUTPUT
+        echo 'EOF' >> $GITHUB_OUTPUT
+
     - name: Format PR comment
       id: comment_formatter
       uses: skills/action-text-variables@v3
       with:
         template-vars: >
           {
-            "text": ${{ toJSON(needs.markdown-spelling.outputs.report) }}
+            "text": ${{ steps.preprocess.outputs.report) }}
           }
         template-text: |
           ### ${{ env.spellcheck_comment_title }}
@@ -442,6 +464,7 @@ jobs:
           <br> 
 
           ```
+          ### TODO: range json
           {{ text }}
           ```
 
