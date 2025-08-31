@@ -24,6 +24,7 @@ name: doc update check
 #     * [ ] in this case, instead of commenting pull requests, it should raise issues.
 #     * [ ] should be able to retrieve config files and dictionary from the called ref, not master.
 #     * [ ] should be able to merge config files and dictionary with local definitions on target repo.
+#     * [ ] should be able to work on diff
 
 on:
   workflow_call:
@@ -451,7 +452,9 @@ jobs:
 
          echo "### Changed markdown docs show some mispelled words. ⚠️" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
-         echo "> ℹ️ INFO: we use [rojopolis/spellcheck-github-actions](https://github.com/rojopolis/spellcheck-github-actions)" >> $GITHUB_STEP_SUMMARY
+         echo "> ℹ️ INFO: we use [rojopolis/spellcheck-github-actions](https://github.com/rojopolis/spellcheck-github-actions)." >> $GITHUB_STEP_SUMMARY
+         echo ">" >> $GITHUB_STEP_SUMMARY
+         echo "> As a general rule, technical terms or acronyms and references to code objects should be backquoted in markdown" >> $GITHUB_STEP_SUMMARY
 
     - name: Upload comment as artifact
       # description: |
