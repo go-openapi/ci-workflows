@@ -153,6 +153,8 @@ jobs:
       report: ${{ steps.report-exists.outputs.report }}
     steps:
     - uses: actions/checkout@v5
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
 
     - name: Checkout spellcheck config
       uses: actions/checkout@v5
