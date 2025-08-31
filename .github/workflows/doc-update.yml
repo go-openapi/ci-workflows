@@ -20,7 +20,6 @@ name: doc update check
 #
 #   ## TODO
 #
-#     * [ ] to refactor repeated jobs as a matrix job? as separate workflow
 #     * [ ] should make an adapted version that runs on schedule and analyzes all markdown.
 #     * [ ] in this case, instead of commenting pull requests, it should raise issues.
 #     * [ ] should be able to retrieve config files and dictionary from the called ref, not master.
