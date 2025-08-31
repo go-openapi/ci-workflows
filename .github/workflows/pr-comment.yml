@@ -37,7 +37,7 @@ on:
         description: |
           The reference to the artifact containing the text of the comment.
 
-          At this moment, only supports "markdown_comment.txt" and "spelling_comment.txt"
+          At this moment, only supports "markdown_comment.txt" and "spellcheck_comment.txt"
         type: string
         required: true
       comment_title:
