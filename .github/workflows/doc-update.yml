@@ -304,7 +304,10 @@ jobs:
 
           Markdown formatting rules are documented [here](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md).
           <br> 
+
+          ```
           {{ text }}
+          ```
 
     - name: Slap on the wrist
       env:
@@ -434,7 +437,10 @@ jobs:
 
           This check is advisory only and not blocking. Please help us improve our documentation.
           <br> 
+
+          ```
           {{ text }}
+          ```
 
     - name: Slap on the wrist
       env:
