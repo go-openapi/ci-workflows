@@ -473,7 +473,7 @@ jobs:
   pr-comment-spelling-report:
     name: Create or update comment
     needs: pr-markdown-spelling-report
-    secrets: inherits
+    secrets: inherit
     uses: ./.github/workflows/pr-comment.yml
     with:
       run_id: ${{ needs.pr-markdown-spelling-report.outputs.run_id }}
