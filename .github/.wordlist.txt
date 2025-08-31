@@ -82,6 +82,8 @@ marshaling
 mixin
 oai
 openapi
+rebase
+rebased
 repo
 repos
 schema

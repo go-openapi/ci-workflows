@@ -430,7 +430,7 @@ jobs:
             "text": ${{ toJSON(needs.markdown-spelling.outputs.report) }}
           }
         template-text: |
-          ### ${{ env.spelling_comment_title }}
+          ### ${{ env.spellcheck_comment_title }}
             
           Some mispelled words were detected in the modified .md files. ⚠️
 
