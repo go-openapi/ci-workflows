@@ -60,7 +60,7 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
 
     - name: Get changed markdown files
-      uses: tj-actions/changed-files@v46
+      uses: tj-actions/changed-files@v47
       id: changed-markdown-files
       with:
         files: '**/*.md'
@@ -174,7 +174,7 @@ jobs:
         cp ci-tools/${{ env.spellcheck_dict }} ${{ env.spellcheck_dict }}
 
     - name: Spellcheck
-      uses: rojopolis/spellcheck-github-actions@0.51.0
+      uses: rojopolis/spellcheck-github-actions@0.52.0
       continue-on-error: true
       id: spellcheck
       with:
