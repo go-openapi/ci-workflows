@@ -125,7 +125,7 @@ jobs:
 
     - name: Find previous PR comment
       if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
-      uses: peter-evans/find-comment@v3
+      uses: peter-evans/find-comment@v4
       id: find_comment
       with:
         repository: ${{ inputs.target_repo }}
@@ -136,7 +136,7 @@ jobs:
 
     - name: Create or update PR comment
       if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
-      uses: peter-evans/create-or-update-comment@v4
+      uses: peter-evans/create-or-update-comment@v5
       with:
         issue-number: ${{ inputs.pr_number }}
         comment-id: ${{ steps.find_comment.outputs.comment-id }}
