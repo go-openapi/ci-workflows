@@ -61,7 +61,7 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
 
     - name: Get changed markdown files
-      uses: tj-actions/changed-files@v46
+      uses: tj-actions/changed-files@v47
       id: changed-markdown-files
       with:
         files: '**/*.md'
@@ -176,7 +176,7 @@ jobs:
         cp ci-tools/${{ env.spellcheck_dict }} ${{ env.spellcheck_dict }}
 
     - name: Spellcheck
-      uses: rojopolis/spellcheck-github-actions@0.51.0
+      uses: rojopolis/spellcheck-github-actions@0.54.0
       continue-on-error: true
       id: spellcheck
       with:
@@ -258,7 +258,7 @@ jobs:
          echo "reactions=hooray" >> "$GITHUB_OUTPUT"
 
     - name: Upload comment as artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         path: ${{ env.artifacts_dir }}/${{ env.markdown_artifact }}
         name: ${{ env.markdown_artifact }}
@@ -326,7 +326,7 @@ jobs:
          echo "> ℹ️ INFO: we use [avtodev/markdown-lint action](https://github.com/avto-dev/markdown-lint)" >> $GITHUB_STEP_SUMMARY
 
     - name: Upload comment as artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         path: ${{ env.artifacts_dir }}/${{ env.markdown_artifact }}
         name: ${{ env.markdown_artifact }}
@@ -393,7 +393,7 @@ jobs:
          echo "reactions=hooray" >> "$GITHUB_OUTPUT"
 
     - name: Upload comment as artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         path: ${{ env.artifacts_dir }}/${{ env.spellcheck_artifact }}
         name: ${{ env.spellcheck_artifact }}
@@ -485,7 +485,7 @@ jobs:
       # description: |
       #   Calls a trusted shared workflow that temporarily elevates the caller's privileges
       #   to write a comment in the PR.
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         path: ${{ env.artifacts_dir }}/${{ env.spellcheck_artifact }}
         name: ${{ env.spellcheck_artifact }}
