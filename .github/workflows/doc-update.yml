@@ -55,18 +55,19 @@ jobs:
       proceed: ${{ steps.changed-markdown-files.outputs.any_changed }}
       all_changed_files: ${{ steps.changed-markdown-files.outputs.all_changed_files }}
     steps:
-    - name: Originating repo checkout (e.g. public fork)
-      uses: actions/checkout@v5
+    -
+      name: Originating repo checkout (e.g. public fork)
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
         ref: ${{ github.event.pull_request.head.sha }}
-
-    - name: Get changed markdown files
-      uses: tj-actions/changed-files@v46
+    -
+      name: Get changed markdown files
+      uses: tj-actions/changed-files@24d32ffd492484c1d75e0c0b894501ddb9d30d62 # v4.7.0
       id: changed-markdown-files
       with:
         files: '**/*.md'
-
-    - name: Notify
+    -
+      name: Notify
       run: |
         echo "::notice::Detected some changed markdown files"
         echo "${{ steps.changed-markdown-files.outputs.all_changed_files }}"
@@ -81,15 +82,15 @@ jobs:
       proceed: ${{ steps.report-exists.outputs.proceed }}
       congrats: ${{ steps.congrats.outputs.proceed }}
       report: ${{ steps.report-exists.outputs.report }}
-
     steps:
-    - name: Originating repo checkout (e.g. public fork)
-      uses: actions/checkout@v5
+    -
+      name: Originating repo checkout (e.g. public fork)
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
         ref: ${{ github.event.pull_request.head.sha }}
-
-    - name: Checkout markdown config
-      uses: actions/checkout@v5
+    -
+      name: Checkout markdown config
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
         repository: go-openapi/ci-workflows
         ref: master  # TODO: retrieve workflow ref
@@ -97,13 +98,13 @@ jobs:
           ${{ env.markdown_config }}
         sparse-checkout-cone-mode: false
         path: ci-tools
-
-    - name: Copy markdown config
+    -
+      name: Copy markdown config
       # TODO: merge with local if present
       run: |
         cp ci-tools/"${{ env.markdown_config}}" "${{ env.markdown_config }}"
-
-    - name: Run markdown linter
+    -
+      name: Run markdown linter
       continue-on-error: true
       id: markdownlint
       uses: docker://avtodev/markdown-lint:v1.5
@@ -111,15 +112,15 @@ jobs:
         config: ./${{ env.markdown_config }}
         args: '${{ needs.markdown-changed.outputs.all_changed_files }}'
         output: '${{ env.lintreport }}'
-
-    - name: Comment on success
+    -
+      name: Comment on success
       if: ${{ steps.markdownlint.outcome == 'success' }}
       id: congrats
       run: |
         echo "::notice:: no linting issue with changed markdown"
         echo "proceed=true" >> $GITHUB_OUTPUT
-
-    - name: Comment on markdown lint complaining
+    -
+      name: Comment on markdown lint complaining
       if: ${{ steps.markdownlint.outcome != 'success' && hashFiles(env.lintreport) != '' }}
       id: report-exists
       run: |
@@ -136,8 +137,8 @@ jobs:
           echo "proceed=false" >> $GITHUB_OUTPUT
           echo "::notice::No linting issues with changed markdown"
         fi
-
-    - name: Other linter errors
+    -
+      name: Other linter errors
       if: ${{ steps.markdownlint.outcome != 'success' && hashFiles(env.lintreport) == '' }}
       run: |
         echo "::error::markdown linter encountered an error"
@@ -154,12 +155,13 @@ jobs:
       congrats: ${{ steps.congrats.outputs.proceed }}
       report: ${{ steps.report-exists.outputs.report }}
     steps:
-    - uses: actions/checkout@v5
+    -
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
         ref: ${{ github.event.pull_request.head.sha }}
-
-    - name: Checkout spellcheck config
-      uses: actions/checkout@v5
+    -
+      name: Checkout spellcheck config
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
         repository: go-openapi/ci-workflows
         ref: master  # TODO: retrieve workflow ref
@@ -168,14 +170,14 @@ jobs:
           ${{ env.spellcheck_dict }}
         sparse-checkout-cone-mode: false
         path: ci-tools
-
-    - name: Copy spellcheck config
+    -
+      name: Copy spellcheck config
       # TODO: merge with local if present
       run: |
         cp ci-tools/${{ env.spellcheck_config }} ${{ env.spellcheck_config }}
         cp ci-tools/${{ env.spellcheck_dict }} ${{ env.spellcheck_dict }}
-
-    - name: Spellcheck
+    -
+      name: Spellcheck
       uses: rojopolis/spellcheck-github-actions@0.51.0
       continue-on-error: true
       id: spellcheck
@@ -184,8 +186,8 @@ jobs:
         source_files: '${{ needs.markdown-changed.outputs.all_changed_files }}'
         task_name: markdown
         output_file: ${{ env.spellcheckreport }}
-
-    - name: Comment on success
+    -
+      name: Comment on success
       if: ${{ steps.spellcheck.outcome == 'success' }}
       id: congrats
       run: |
@@ -195,8 +197,8 @@ jobs:
         echo "### Your changes to markdown docs show impeccable spelling. 👍" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "> ℹ️ INFO: we use [rojopolis/spellcheck-github-actions](https://github.com/rojopolis/spellcheck-github-actions)" >> $GITHUB_STEP_SUMMARY
-
-    - name: Comment on spellcheck complaining
+    -
+      name: Comment on spellcheck complaining
       if: ${{ steps.spellcheck.outcome != 'success' && hashFiles(env.spellcheckreport) != '' }}
       id: report-exists
       run: |
@@ -212,8 +214,8 @@ jobs:
           echo "proceed=false" >> $GITHUB_OUTPUT
           echo "::notice::No spelling issues with changed markdown"
         fi
-
-    - name: Other linter errors
+    -
+      name: Other linter errors
       if: ${{ steps.spellcheck.outcome != 'success' && hashFiles(env.spellcheckreport) == '' }}
       run: |
         echo "::error::spellcheck encountered an error"
@@ -232,13 +234,14 @@ jobs:
       comment_title:  ${{ steps.notify_markdown_congrats.outputs.comment_title }}
       reactions: ${{ steps.notify_markdown_congrats.outputs.reactions }}
     steps:
-    - name: Congrats
+    -
+      name: Congrats
       id: notify_markdown_congrats
       run: |
          mkdir -p "${{ env.artifacts_dir }}"
          read -d '' MSG<<EOF
          ### ${{ env.markdown_comment_title }}
-           
+
          Markdown looks good to me. 👍
          EOF
 
@@ -256,8 +259,8 @@ jobs:
          echo "artifact_name=${{ env.markdown_artifact }}" >> "$GITHUB_OUTPUT"
          echo "comment_title=${{ env.markdown_comment_title }}" >> "$GITHUB_OUTPUT"
          echo "reactions=hooray" >> "$GITHUB_OUTPUT"
-
-    - name: Upload comment as artifact
+    -
+      name: Upload comment as artifact
       uses: actions/upload-artifact@v4
       with:
         path: ${{ env.artifacts_dir }}/${{ env.markdown_artifact }}
@@ -290,7 +293,8 @@ jobs:
       reactions: ${{ steps.notify_markdown_report.outputs.reactions }}
     runs-on: ubuntu-latest
     steps:
-    - name: Format PR comment
+    -
+      name: Format PR comment
       id: comment_formatter
       uses: skills/action-text-variables@v3
       with:
@@ -300,7 +304,7 @@ jobs:
           }
         template-text: |
           ### ${{ env.markdown_comment_title }}
-            
+
           Some markdown linting issues were detected in the modified .md files. ⚠️
 
           Perhaps they were already there before your changes.
@@ -308,13 +312,13 @@ jobs:
           This check is advisory only and not blocking. Please help us adopt a nice markdown style.
 
           Markdown formatting rules are documented [here](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md).
-          <br> 
+          <br>
 
           ```
           {{ text }}
           ```
-
-    - name: Slap on the wrist
+    -
+      name: Slap on the wrist
       env:
         OUTPUT: "${{ steps.comment_formatter.outputs.updated-text }}"
       run: |
@@ -324,14 +328,14 @@ jobs:
          echo "### Changed markdown docs need some formatting. ⚠️" >> $GITHUB_STEP_SUMMARY
          echo "" >> $GITHUB_STEP_SUMMARY
          echo "> ℹ️ INFO: we use [avtodev/markdown-lint action](https://github.com/avto-dev/markdown-lint)" >> $GITHUB_STEP_SUMMARY
-
-    - name: Upload comment as artifact
+    -
+      name: Upload comment as artifact
       uses: actions/upload-artifact@v4
       with:
         path: ${{ env.artifacts_dir }}/${{ env.markdown_artifact }}
         name: ${{ env.markdown_artifact }}
-
-    - name: Notify
+    -
+      name: Notify
       id: notify_markdown_report
       run: |
         echo "::notice::Commented pull request ${{ github.event.pull_request.number }}"
@@ -371,13 +375,14 @@ jobs:
       reactions: ${{ steps.notify_spelling_congrats.outputs.reactions }}
     runs-on: ubuntu-latest
     steps:
-    - name: Congrats
+    -
+      name: Congrats
       id: notify_spelling_congrats
       run: |
          mkdir -p artifacts
          read -d '' MSG<<EOF
          ### ${{ env.spellcheck_comment_title }}
-           
+
          Spelling in mardown looks good to me. 👍
          EOF
 
@@ -391,8 +396,8 @@ jobs:
          echo "artifact_name=${{ env.spellcheck_artifact }}" >> "$GITHUB_OUTPUT"
          echo "comment_title=${{ env.spellcheck_comment_title }}" >> "$GITHUB_OUTPUT"
          echo "reactions=hooray" >> "$GITHUB_OUTPUT"
-
-    - name: Upload comment as artifact
+    -
+      name: Upload comment as artifact
       uses: actions/upload-artifact@v4
       with:
         path: ${{ env.artifacts_dir }}/${{ env.spellcheck_artifact }}
@@ -425,12 +430,13 @@ jobs:
       reactions: ${{ steps.notify_spelling_report.outputs.reactions }}
     runs-on: ubuntu-latest
     steps:
-    - name: Pre-process spellcheck report
+    -
+      name: Pre-process spellcheck report
       id: preprocess
-      env: 
+      env:
         MSG: ${{ needs.markdown-spelling.outputs.report }}
-        SED_CMD: .github/workflows/filter.sed # a sed script to parse and reformat the spellcheck report
-        JQ_CMD: .github/workflows/merge.jq # a jq script to dedupe spellcheck reports by file
+        SED_CMD: .github/workflows/scripts/filter.sed # a sed script to parse and reformat the spellcheck report
+        JQ_CMD: .github/workflows/scripts/merge.jq # a jq script to dedupe spellcheck reports by file
         TMPFILE: /tmp/spellcheck-report.txt
       run: |
         export MSG
@@ -444,8 +450,8 @@ jobs:
         echo 'report<<EOF' >> $GITHUB_OUTPUT
         cat /tmp/preprocessed.txt|sed -e '$a\' >> $GITHUB_OUTPUT
         echo 'EOF' >> $GITHUB_OUTPUT
-
-    - name: Format PR comment
+    -
+      name: Format PR comment
       id: comment_formatter
       uses: skills/action-text-variables@v3
       with:
@@ -455,20 +461,20 @@ jobs:
           }
         template-text: |
           ### ${{ env.spellcheck_comment_title }}
-            
+
           Some mispelled words were detected in the modified .md files. ⚠️
 
           Perhaps they were already there before your changes.
 
           This check is advisory only and not blocking. Please help us improve our documentation.
-          <br> 
+          <br>
 
           ```
           ### TODO: range json
           {{ text }}
           ```
-
-    - name: Slap on the wrist
+    -
+      name: Slap on the wrist
       env:
         OUTPUT: "${{ steps.comment_formatter.outputs.updated-text }}"
       run: |
@@ -480,8 +486,8 @@ jobs:
          echo "> ℹ️ INFO: we use [rojopolis/spellcheck-github-actions](https://github.com/rojopolis/spellcheck-github-actions)." >> $GITHUB_STEP_SUMMARY
          echo ">" >> $GITHUB_STEP_SUMMARY
          echo "> As a general rule, technical terms or acronyms and references to code objects should be backquoted in markdown" >> $GITHUB_STEP_SUMMARY
-
-    - name: Upload comment as artifact
+    -
+      name: Upload comment as artifact
       # description: |
       #   Calls a trusted shared workflow that temporarily elevates the caller's privileges
       #   to write a comment in the PR.
@@ -489,8 +495,8 @@ jobs:
       with:
         path: ${{ env.artifacts_dir }}/${{ env.spellcheck_artifact }}
         name: ${{ env.spellcheck_artifact }}
-
-    - name: Notify
+    -
+      name: Notify
       id: notify_spelling_report
       run: |
         echo "::notice::Commented pull request ${{ github.event.pull_request.number }}"

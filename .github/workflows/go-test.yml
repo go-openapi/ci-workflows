@@ -1,178 +1,308 @@
-name: go test
-# description: |
-#   This workflow to run unit tests on a repo that contains a single go module.
-#
-#   ## Usage of github action features
-#
-#   * shared workflow
-#   * matrix job
-#   * job summary (on actions UI)
-#
-#   ## Limitations of github action features
-#
-#     * [ ] needed to hardcode all matrix job entries as outputs. No way to make this dynamic.
-#
-#   ## TODO
-#
-#     * [ ] perhaps implement in golangci-lint the "extends" or "include" functionality to merge
-#           config files from a remote location. We don't want to push configs from CI as we'd
-#           like all repos to allow users to fork, lint and run just like they were independent,
-#           and not impose some "invisible linter" check.
-#     * [ ] we need to make a specific version for mono-repos. For now, only go-openapi swag is a mono-repo.
-#     * [ ] detect minimum required go version in go.mod and run a test for that one
+name: go-test
 
 on:
-  workflow_call:
+  push:
+    branches:
+      - master
+
+  pull_request:
+
+permissions:
+  pull-requests: read
+  contents: read
 
 jobs:
   lint:
     name: Lint
-    # description: |
-    #   Lint uses golangci-lint github action and lints only changes from master.
-    #
-    #   It will run on the latest go version.
-    #
-    #   We rely on golangci-lint to automatically disable linters that do not apply to the minimum required go version
-    #   currently defined in go.mod.
-    #
-    #   At this moment, .golangci.yml configuration files are not shared: each repository must have its configuration.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v5
+      -
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      -
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
         with:
           go-version: stable
           check-latest: true
           cache: true
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
+      -
+        name: golangci-lint
+        uses: golangci/golangci-lint-action@0a35821d5c230e903fcfe077583637dea1b27b47 # v9.0.0
         with:
           version: latest
           only-new-issues: true
-          skip-cache: false
-      - name: Linting complete  # <- report summary when we have good news to report
-        run: |
-          echo "### Your changes to the go code look good. 👍" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> ℹ️ INFO: we use [golangci-lint action](https://github.com/golangci/golangci-lint-action)" >> $GITHUB_STEP_SUMMARY
-          echo "> to lint any change to go code from master." >> $GITHUB_STEP_SUMMARY
+          skip-cache: true
 
-  unit_tests:
+  test:
     name: Unit tests
-    # description: |
-    #   Run go unit tests x6 on linux, mac & windows for the 2 latest go versions.
-    #
-    #   * Run tests with the -race flag.
-    #   * Captures test coverage and uploads it to codecov.com.
-    #
-    #   > NOTE: coverage uploads to codecov are authorized thanks to an organization token that is
-    #   > managed on [codecov admin console](https://app.codecov.io/account/gh/go-openapi).
     runs-on: ${{ matrix.os }}
-    outputs:
-      # NOTE(fredbi): as of Aug. 2025, there is no way to have github actions declare outputs dynamically
-      test_result_oldstable_ubuntu_latest: "${{ steps.goreport.outputs.test_result_oldstable_ubuntu_latest }}"
-      test_result_oldstable_macos_latest: "${{ steps.goreport.outputs.test_result_oldstable_macos_latest }}"
-      test_result_oldstable_windows_latest: "${{ steps.goreport.outputs.test_result_oldstable_windows_latest }}"
-      test_result_stable_ubuntu_latest: "${{ steps.goreport.outputs.test_result_stable_ubuntu_latest }}"
-      test_result_stable_macos_latest: "${{ steps.goreport.outputs.test_result_stable_macos_latest }}"
-      test_result_stable_windows_latest: "${{ steps.goreport.outputs.test_result_stable_windows_latest }}"
+    needs: [lint]
 
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
-        go_version: ['oldstable', 'stable' ]
+        go: ['oldstable', 'stable' ]
 
     steps:
-    - uses: actions/setup-go@v5
-      with:
-        go-version: '${{ matrix.go_version }}'
-        check-latest: true
-        cache: true # <- cache key is go.sum
+      -
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      -
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: '${{ matrix.go }}'
+          check-latest: true
+          cache: true
+      -
+        name: Install Tools
+        # TODO: pin version -> fork + update dedicated github action
+        run: |
+          go install gotest.tools/gotestsum@latest
+      -
+        name: Run unit tests
+        shell: bash
+        run: >
+          gotestsum
+          --jsonfile 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json'
+          --
+          -race
+          -p 2
+          -count 1
+          -timeout=20m
+          -coverprofile='unit.coverage.${{ matrix.os }}-${{ matrix.go }}.out'
+          -covermode=atomic
+          -coverpkg=$(go list)/...
+          ./...
+      -
+        name: Upload coverage artifacts
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          # *.coverage.* pattern is automatically detected by codecov
+          path: '**/*.coverage.*.out'
+          name: 'unit.coverage.${{ matrix.os }}-${{ matrix.go }}'
+          retention-days: 1
+      -
+        name: Upload test report artifacts
+        # upload report even if test fail. BTW, this is when they are valuable.
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          path: '**/unit.report.*.json'
+          name: 'unit.report.${{ matrix.os }}-${{ matrix.go }}'
+          retention-days: 1
 
-    - uses: actions/checkout@v5
+  fuzz-test:
+    name: fuzz test
+    runs-on: ubuntu-latest
+    env:
+      CORPUS_MAX_SIZE_MB: 100
+    steps:
+      -
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      -
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: stable
+          check-latest: true
+          cache: true
+      -
+        name: Locate go fuzz cache
+        run: |
+          GOCACHE=$(go env GOCACHE)
+          echo "CORPUS_DIR=${GOCACHE}/fuzz" >> "${GITHUB_ENV}"
+      -
+        name: Retrieve fuzz corpus from cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          key: ${{ runner.os }}-go-fuzz
+          path:
+            ${{ env.CORPUS_DIR }}
+      -
+        name: Manage fuzz corpus cache size
+        run: |
+          mkdir -p "${CORPUS_DIR}"
+          CURRENT_SIZE=$(du -sm "${CORPUS_DIR}"|cut -f1)
+          echo "corpus size: ${CURRENT_SIZE}MB"
+          if [[ "${CURRENT_SIZE}" -gt "${CORPUS_MAX_SIZE}" ]] ; then
+            # remove the 50 oldest corpus files
+            echo "::warning:Large fuzz corpus pruned"
+            find "${CORPUS_DIR}" -type f|ls -t|tail -n +50|xargs rm -f
+          fi
+      -
+        name: Run go fuzz tests
+        run: >
+          go test
+          -fuzz=Fuzz
+          -run=Fuzz
+          -fuzztime=1m30s
+          -fuzzminimizetime=5m
+          ./...
+      -
+        name: Upload failed corpus
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          path: ${{ env.CORPUS_DIR }}
+          name: '${{ runner.os }}-fuzz-corpus-failure'
+          retention-days: 60
+      -
+        name: Report fuzz corpus cache size
+        run: |
+          FINAL_SIZE=$(du -m "${CORPUS_DIR}"|cut -f1)
+          echo "::notice title=fuzz corpus size:${FINAL_SIZE}MB"
 
-    - name: Run unit tests
-      # description: |
-      #   Runs unit tests with test coverage assuming that this repository contains only one module,
-      #   with a go.mod located at the root.
+
+  test-complete:
+    # description: |
+    #   Be explicit about all tests being passed. This allows for setting up only a few status checks on PRs.
+    name: tests completed
+    needs: [test,fuzz-test]
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Tests completed
+        run: |
+          echo "::notice title=Success:All tests passed"
+
+  collect-coverage:
+    # description: |
+    #   Gather, merge then uploads test coverage files from all test jobs (this includes integration tests,
+    #   like codegen-test). This reduces the number of failures due to codecov hitting github API rate limit.
+    name: collect test coverage
+    needs: [test-complete]
+    if: ${{ !cancelled() && needs.test-complete.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      -
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+      -
+        name: Download coverage artifacts
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          run-id: "${{ github.run_id }}"
+          pattern: "*.coverage.*"
+          # artifacts resolve as folders
+          path: coverage/
+      -
+        name: Upload coverage to codecov
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
+        with:
+          name: Aggregated coverage
+          # All *.coverage.*.out files uploaded should be detected by the codecov action.
+          # NOTE: we lose the flags on individual test reports (e.g. by os, by go version, unit vs integration tests)
+          fail_ci_if_error: false
+          verbose: false
+
+  collect-reports:
+    # description: |
+    #   Gather, merge then uploads test report files from unit test jobs.
+    #
+    #   At this moment test reports are published on both codecov
+    #   (see <https://app.codecov.io/gh/go-swagger/go-swagger/tests>) and the github actions UI
+    #   (see <https://github.com/go-swagger/go-swagger/actions>).
+    name: collect test reports
+    needs: [test]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      -
+        uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version: stable
+          check-latest: true
+          cache: true
+      -
+        name: Download test report artifacts
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          run-id: "${{ github.run_id }}"
+          pattern: "*.report.*"
+          # artifacts resolve as folders
+          path: reports/
+      -
+        name: Convert test reports to a merged JUnit XML
+        # NOTE: codecov test reports only support JUnit format at this moment. See https://docs.codecov.com/docs/test-analytics.
+        # Ideally, codecov improve a bit their platform, so we may only need a single pass to CTRF format.
+        #
+        # As a contemplated alternative, we could use gotestsum above to produce the JUnit XML directly.
+        # At this moment, we keep a json format to dispatch test reports to codecov as well as to CTRF reports.
+        #
+        # TODO(fredbi): sec compliance - pin go-junit-report
+        # TODO(fredbi): investigate - use mikepenz/action-junit-report@v5, that packages most of the following scripts
+        # in a single action. Alternative: for that action.
+        run: |
+          go install github.com/jstemmer/go-junit-report/v2@latest
+          go-junit-report -version
+
+          find reports/ -name \*.json | xargs cat | go-junit-report -parser gojson -out=reports/junit_report.xml
+      -
+        name: Upload test results to Codecov
+        # This allows for using the test results UI on codecov
+        uses: codecov/codecov-action@5a1091511ad55cbe89839c7260b706298ca349f7 # v5.5.1
+        with:
+          files: '**/junit_report.xml'
+          report_type: 'test_results'
+          fail_ci_if_error: false
+          handle_no_reports_found: true
+          verbose: true
+      -
+        name: Convert test reports to CTRF JSON
+        # description: |
+        #   This step publishes CTRF test reports on github UI (actions)
+        # TODO: pin this dependency
+        run: |
+          go install github.com/ctrf-io/go-ctrf-json-reporter/cmd/go-ctrf-json-reporter@v0.0.10
+
+          appName="${{ github.repository }}"
+          buildNumber="${{ github.run_id }}"
+          appVersion="${{ github.event.pull_request.head.sha }}"
+          if [[ -z "${appVersion}" ]] ; then
+            # for push events
+            appVersion="${{ github.sha }}"
+          fi
+
+          # reconstruct platform information from the file name
+          # set -x
+          while read report ; do
+            # 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json'
+            reformated=$(echo "${report##*/}"|sed -E 's/(go)([[:digit:]]+)\.([[:digit:]]+)/\1\2\3/') # e.g. go1.24 becomes go124
+            mapfile -d'.' -t -s 2 -n 2 split < <(echo $reformated) # skip the first 2 parts, stop on 2 more parts
+            envstring="${split[0]}"
+            osPlatform="${envstring%-*}"
+            osRelease="${envstring##*-}"
+
+            # this is a best effort only: tests may be cancelled upstream and produce incorrect reports
+            go-ctrf-json-reporter \
+              -quiet \
+              -appName "${appName}" \
+              -appVersion "${appVersion}" \
+              -buildNumber "${buildNumber}" \
+              -osPlatform "${osPlatform}" \
+              -osRelease "${osRelease}" \
+              -output "./reports/ctrf_report_${osPlatform}_${osRelease}.json" < "${report}" || true
+          done < <(find reports -name \*.json)
+
+      # NOTE: at this moment, we don't upload CTRF reports as artifacts.
+      # Some of the CTRF reports are therefore not available (flaky tests, history, ...).
       #
-      #   > NOTE
-      #   > The -coverpkg option is important to have all coverage files containing
-      #   > an appropriate reference to source files, so coverage may be followed accuratelt
-      #   > on codecov UI.
-      id: gotest
-      shell: bash
-      run: |
-        go test -v \
-          -race \
-          -coverprofile="coverage-${{ matrix.os }}.${{ matrix.go_version }}.out" \
-          -covermode=atomic \
-          -coverpkg=$(go list ./... |paste -sd ",") \
-        ./...
-
-    - name: Report test
-      # description: |
-      #   This is reporting the job summary (github UI).
-      if: ${{ success() || failure() }}
-      id: goreport
-      shell: bash
-      run: |
-        icon="✅"
-        if [[ "${{ steps.gotest.outcome }}" != "success" ]] ; then
-          icon="🚫"
-        fi
-        echo "test_result_${{ matrix.go_version }}_$(echo "${{ matrix.os }}"|tr '-' '_')='| ${{ matrix.go_version }} | ${{ matrix.os }} | ${icon} ${{ steps.gotest.outcome }}  |'" >> "$GITHUB_OUTPUT"
-
-    - name: Upload coverage to codecov
-      uses: codecov/codecov-action@v5
-      with:
-        files: './coverage-${{ matrix.os }}.${{ matrix.go_version }}.out'
-        flags: '${{ matrix.go_version }}-${{ matrix.os }}'
-        fail_ci_if_error: false
-        verbose: false
-
-  all_tests:
-    name: All tests
-    # description: |
-    #   This job regroups all tests launched as a matrix, so we may define a branch protection rule
-    #   just on that job rather than each matrix job independently.
-    needs: [ unit_tests ]    # <- requires all unit_tests jobs to be successful.
-    env:
-      test_result: '${{ join(needs.unit_tests.outputs.*) }}'  # <- this is a comma-separated list of quoted strings
-    runs-on: ubuntu-latest
-    steps:
-      - name: Tests complete
-        run: |
-          echo "### All tests completed. 👍" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> ℹ️ INFO: we run unit tests in 6 different configurations of OS and go version." >> $GITHUB_STEP_SUMMARY
-          echo "> At this moment, we don't run architecture-specific tests." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| go version | OS | Result |" >> $GITHUB_STEP_SUMMARY
-          echo "|------------|----|--------|" >> $GITHUB_STEP_SUMMARY
-          declare -a lines 
-          eval "lines=($(echo $test_result|tr ',' ' '))"
-          for line in "${lines[@]}";do echo "${line}" ; done >> $GITHUB_STEP_SUMMARY
-
-  some_failed_tests:
-    name: Some tests have failed
-    # description: |
-    # This job is only here to report a summary of failed tests in the github actions UI.
-    needs: [ unit_tests ]     # <- requires all unit_tests jobs to be completed, but not all where successfull.
-    if: ${{ failure() }}
-    env:
-      test_result: '${{ join(needs.unit_tests.outputs.*) }}'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Tests failed
-        run: |
-          echo "### Some tests have failed. 🚫" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "> ℹ️ INFO: testing halted on first encountered failure." >> $GITHUB_STEP_SUMMARY
-          echo "> Some configurations may not have been tested yet." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| go version | OS | Result |" >> $GITHUB_STEP_SUMMARY
-          echo "|------------|----|--------|" >> $GITHUB_STEP_SUMMARY
-          declare -a lines 
-          eval "lines=($(echo $test_result|tr ',' ' '))"
-          for line in "${lines[@]}";do echo "${line}" ; done >> $GITHUB_STEP_SUMMARY
+      # See https://github.com/ctrf-io/github-test-reporter?tab=readme-ov-file#report-showcase
+      # for more reporting possibilities. At the moment, we keep it simple, as most advanced features
+      # require a github token (thus adding the complexity of a separate workflow starting on pull_request_target).
+      #
+      # For the moment, we are contented with these simple reports. This is an opportunity to compare the insight they
+      # provide as compared to what is uploaded to codecov.
+      #
+      # Codecov analytics are pretty poor at this moment. On the other hand, they manage the bot that pushes back
+      # PR comments.
+      #
+      # They also handle the storage of past test reports, so as to assess flaky tests.
+      -
+        name: Publish Test Summary Results
+        uses: ctrf-io/github-test-reporter@024bc4b64d997ca9da86833c6b9548c55c620e40 # v1.0.26
+        with:
+          report-path: 'reports/ctrf_report_*.json'
+          use-suite-name: true
+          summary-report: true             # post a report to the github actions summary
+          github-report: true
+          failed-folded-report: true

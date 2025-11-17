@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+# description: |
+#   Build a github release on pushed tag.
+#
+#   The only available asset is a release note.
+
+jobs:
+  gh-release:
+    name: Create release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      -
+        name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+      -
+        name: Extract tag message
+        id: get_message
+        # git-cliff may or may not pick the current tag message, difficult to tell when
+        # this works. We extract the tag message explicitly.
+        run: |
+          MESSAGE=$(git tag -l '${{ github.ref_name }}' --format='%(contents:subject)
+
+          %(contents:body)
+          ')
+          export MESSAGE
+          echo "message<<EOF" >> "${GITHUB_OUTPUT}"
+          printenv MESSAGE >> "${GITHUB_OUTPUT}"
+          echo 'EOF' >> "${GITHUB_OUTPUT}"
+      -
+        name: Generate release notes
+        id: notes
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPO: ${{ github.repository }}
+        uses: orhun/git-cliff-action@d77b37db2e3f7398432d34b72a12aa3e2ba87e51 # v4.6.0
+        with:
+          config: '.cliff.toml'
+          args: >-
+            --current
+            --with-tag-message '${{ steps.get_message.outputs.message }}'
+      -
+        name: Create github release
+        uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
+        with:
+          body: ${{ steps.notes.outputs.content }}

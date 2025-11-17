@@ -3,12 +3,14 @@ name: go test
 
 on:
   push:
-    tags:
-      - v*
     branches:
       - master
 
   pull_request:
+
+permissions:
+  pull-requests: read
+  contents: read
 
 jobs:
   test:

@@ -1,26 +1,42 @@
-# ci-workflows[![Build Status](https://github.com/go-openapi/ci-workflows/actions/workflows/go-test.yml/badge.svg)](https://github.com/go-openapi/ci-workflows/actions?query=workflow%3A"go+test") [![codecov](https://codecov.io/gh/go-openapi/ci-workflows/branch/master/graph/badge.svg)](https://codecov.io/gh/go-openapi/ci-workflows)
+# ci-workflows
 
-[![Slack Status](https://slackin.goswagger.io/badge.svg)](https://slackin.goswagger.io)
-[![license](http://img.shields.io/badge/license-Apache%20v2-orange.svg)](https://raw.githubusercontent.com/go-openapi/ci-workflows/master/LICENSE)
-[![Go Reference](https://pkg.go.dev/badge/github.com/go-openapi/ci-workflows.svg)](https://pkg.go.dev/github.com/go-openapi/ci-workflows)
-[![Go Report Card](https://goreportcard.com/badge/github.com/go-openapi/ci-workflows)](https://goreportcard.com/report/github.com/go-openapi/ci-workflows)
+<!-- Badges: status  -->
+[![Tests][test-badge]][test-url] [![Coverage][cov-badge]][cov-url] [![CI vuln scan][vuln-scan-badge]][vuln-scan-url] [![CodeQL][codeql-badge]][codeql-url]
+<!-- Badges: release & docker images  -->
+<!-- Badges: code quality  -->
+<!-- Badges: license & compliance -->
+[![Release][release-badge]][release-url] [![Go Report Card][gocard-badge]][gocard-url] [![CodeFactor Grade][codefactor-badge]][codefactor-url] [![License][license-badge]][license-url]
+<!-- Badges: documentation & support -->
+<!-- Badges: others & stats -->
+<!-- Slack badge disabled until I am able to restore a valid link to the chat -->
+[![GoDoc][godoc-badge]][godoc-url] <!-- [![Slack Channel][slack-badge]][slack-url] -->[![go version][goversion-badge]][goversion-url] ![Top language][top-badge] ![Commits since latest release][commits-badge]
+
+---
 
 Common Continuous Integration (`CI`) workflows and setup for go-openapi repos.
 
 * shared github action workflows
-* shared `dependabot` configuration (TODO)
+* shared `dependabot` configuration (**BLOCKED**)
 * shared `golangci-lint` configuration (**BLOCKED**)
 
-> NOTE: at this moment, it is difficult to share the golangci-lint config,
-> so that one is not shared yet.
+## Status
+
+Unreleased.
+
+Initial setup. Content may evolve with breaking changes.
+
+> NOTE: at this moment, it is difficult to share the dependabot and golangci-lint configurations,
+> so these are not shared yet.
+
+## Basic usage
 
 ## Motivation
 
-It took a while, but we eventually managed to align all checks, tests and
+It took a while (well a something like 10 years...), but we eventually managed to align all checks, tests and
 dependabot rules declared in the family of go-openapi repos.
 
 Now we'd like to be able to maintain, enrich and improve these checks without
-worrying too much about the burden to replicate it about a dozen times.
+worrying too much about the burden of replicating it about a dozen times.
 
 ## Contemplated enhancements
 
@@ -52,3 +68,55 @@ In no particular order:
 * [ ] doc: experiment LLM from github model, using embeddings ( -> 
 * [ ] issues: experiment LLM from github model, using embeddings ( -> show related issues)
 * [ ] github pages w/ hugo (like go-swagger, experiment another theme and json data)
+
+## Change log
+
+See <https://github.com/go-openapi/ci-workflows/releases>
+
+## Licensing
+
+This content ships under the [SPDX-License-Identifier: Apache-2.0](./LICENSE).
+
+<!--
+## Limitations
+-->
+
+## Other documentation
+
+* [All-time contributors](./CONTRIBUTORS.md)
+* [Contributing guidelines](.github/CONTRIBUTING.md)
+* [Maintainers documentation](docs/MAINTAINERS.md)
+* [Code style](docs/STYLE.md)
+
+<!-- Badges: status  -->
+[test-badge]: https://github.com/go-openapi/ci-workflows/actions/workflows/go-test.yml/badge.svg
+[test-url]: https://github.com/go-openapi/ci-workflows/actions/workflows/go-test.yml
+[cov-badge]: https://codecov.io/gh/go-openapi/ci-workflows/branch/master/graph/badge.svg
+[cov-url]: https://codecov.io/gh/go-openapi/ci-workflows
+[vuln-scan-badge]: https://github.com/go-openapi/ci-workflows/actions/workflows/scanner.yml/badge.svg
+[vuln-scan-url]: https://github.com/go-openapi/ci-workflows/actions/workflows/scanner.yml
+[codeql-badge]: https://github.com/go-openapi/ci-workflows/actions/workflows/codeql.yml/badge.svg
+[codeql-url]: https://github.com/go-openapi/ci-workflows/actions/workflows/codeql.yml
+<!-- Badges: release & docker images  -->
+[release-badge]: https://badge.fury.io/go/github.com%2Fgo-openapi%2Fci-workflows.svg
+[release-url]: https://badge.fury.io/go/github.com%2Fgo-openapi%2Fci-workflows
+<!-- Badges: code quality  -->
+[gocard-badge]: https://goreportcard.com/badge/github.com/go-openapi/ci-workflows
+[gocard-url]: https://goreportcard.com/report/github.com/go-openapi/ci-workflows
+[codefactor-badge]: https://img.shields.io/codefactor/grade/github/go-openapi/ci-workflows
+[codefactor-url]: https://www.codefactor.io/repository/github/go-openapi/ci-workflows
+<!-- Badges: documentation & support -->
+[doc-badge]: https://img.shields.io/badge/doc-site-blue?link=https%3A%2F%2Fgoswagger.io%2Fgo-openapi%2F
+[doc-url]: https://goswagger.io/go-openapi
+[godoc-badge]: https://pkg.go.dev/badge/github.com/go-openapi/ci-workflows
+[godoc-url]: http://pkg.go.dev/github.com/go-openapi/ci-workflows
+[slack-badge]: https://slackin.goswagger.io/badge.svg
+[slack-url]: https://slackin.goswagger.io
+<!-- Badges: license & compliance -->
+[license-badge]: http://img.shields.io/badge/license-Apache%20v2-orange.svg
+[license-url]: https://github.com/go-openapi/ci-workflows/?tab=Apache-2.0-1-ov-file#readme
+<!-- Badges: others & stats -->
+[goversion-badge]: https://img.shields.io/github/go-mod/go-version/go-openapi/ci-workflows
+[goversion-url]: https://github.com/go-openapi/ci-workflows/blob/master/go.mod
+[top-badge]: https://img.shields.io/github/languages/top/go-openapi/ci-workflows
+[commits-badge]: https://img.shields.io/github/commits-since/go-openapi/ci-workflows/latest
