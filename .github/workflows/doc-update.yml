@@ -57,7 +57,7 @@ jobs:
     steps:
     -
       name: Originating repo checkout (e.g. public fork)
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
       with:
         ref: ${{ github.event.pull_request.head.sha }}
     -
@@ -85,12 +85,12 @@ jobs:
     steps:
     -
       name: Originating repo checkout (e.g. public fork)
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
       with:
         ref: ${{ github.event.pull_request.head.sha }}
     -
       name: Checkout markdown config
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
       with:
         repository: go-openapi/ci-workflows
         ref: master  # TODO: retrieve workflow ref
@@ -156,12 +156,12 @@ jobs:
       report: ${{ steps.report-exists.outputs.report }}
     steps:
     -
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
       with:
         ref: ${{ github.event.pull_request.head.sha }}
     -
       name: Checkout spellcheck config
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
       with:
         repository: go-openapi/ci-workflows
         ref: master  # TODO: retrieve workflow ref
@@ -178,7 +178,7 @@ jobs:
         cp ci-tools/${{ env.spellcheck_dict }} ${{ env.spellcheck_dict }}
     -
       name: Spellcheck
-      uses: rojopolis/spellcheck-github-actions@0.51.0
+      uses: rojopolis/spellcheck-github-actions@0.55.0
       continue-on-error: true
       id: spellcheck
       with:
@@ -261,7 +261,7 @@ jobs:
          echo "reactions=hooray" >> "$GITHUB_OUTPUT"
     -
       name: Upload comment as artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         path: ${{ env.artifacts_dir }}/${{ env.markdown_artifact }}
         name: ${{ env.markdown_artifact }}
@@ -330,7 +330,7 @@ jobs:
          echo "> ℹ️ INFO: we use [avtodev/markdown-lint action](https://github.com/avto-dev/markdown-lint)" >> $GITHUB_STEP_SUMMARY
     -
       name: Upload comment as artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         path: ${{ env.artifacts_dir }}/${{ env.markdown_artifact }}
         name: ${{ env.markdown_artifact }}
@@ -398,7 +398,7 @@ jobs:
          echo "reactions=hooray" >> "$GITHUB_OUTPUT"
     -
       name: Upload comment as artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         path: ${{ env.artifacts_dir }}/${{ env.spellcheck_artifact }}
         name: ${{ env.spellcheck_artifact }}
@@ -491,7 +491,7 @@ jobs:
       # description: |
       #   Calls a trusted shared workflow that temporarily elevates the caller's privileges
       #   to write a comment in the PR.
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         path: ${{ env.artifacts_dir }}/${{ env.spellcheck_artifact }}
         name: ${{ env.spellcheck_artifact }}
