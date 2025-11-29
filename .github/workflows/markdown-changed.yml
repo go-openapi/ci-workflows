@@ -1,0 +1,33 @@
+name: Markdown changed
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  markdown-changed:
+    # description: |
+    # This triggers a markdown and spellcheck lint whenever documentation files change.
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.changed-markdown-files.outputs.any_changed }}
+      all_changed_files: ${{ steps.changed-markdown-files.outputs.all_changed_files }}
+    steps:
+    -
+      name: Originating repo checkout (e.g. public fork)
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+    -
+      name: Get changed markdown files
+      uses: tj-actions/changed-files@24d32ffd492484c1d75e0c0b894501ddb9d30d62 # v4.7.0
+      id: changed-markdown-files
+      with:
+        files: '**/*.md'
+    -
+      name: Notify
+      run: |
+        echo "::notice::Detected some changed markdown files"
+        echo "${{ steps.changed-markdown-files.outputs.all_changed_files }}"

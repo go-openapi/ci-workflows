@@ -17,7 +17,7 @@
 
 ## Status
 
-{{ .Status }}.
+API is stable.
 
 ## Import this library in your project
 
@@ -65,8 +65,10 @@ on top of which it has been built.
 [codeql-badge]: https://github.com/{{ .Owner }}/{{ .Repo }}/actions/workflows/codeql.yml/badge.svg
 [codeql-url]: https://github.com/{{ .Owner }}/{{ .Repo }}/actions/workflows/codeql.yml
 <!-- Badges: release & docker images  -->
-[release-badge]: https://badge.fury.io/go/github.com%2F{{ .Owner }}%2F{{ .Repo }}.svg
-[release-url]: https://badge.fury.io/go/github.com%2F{{ .Owner }}%2F{{ .Repo }}
+[release-badge]: https://badge.fury.io/gh/{{ .Owner }}%2F{{ .Repo }}.svg
+[release-url]: https://badge.fury.io/gh/{{ .Owner }}%2F{{ .Repo }}
+[gomod-badge]: https://badge.fury.io/go/github.com%2F{{ .Owner }}%2F{{ .Repo }}.svg
+[gomod-url]: https://badge.fury.io/go/github.com%2F{{ .Owner }}%2F{{ .Repo }}
 <!-- Badges: code quality  -->
 [gocard-badge]: https://goreportcard.com/badge/github.com/{{ .Owner }}/{{ .Repo }}
 [gocard-url]: https://goreportcard.com/report/github.com/{{ .Owner }}/{{ .Repo }}

@@ -1,0 +1,270 @@
+name: Markdown spellcheck
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  artifacts_dir: artifacts
+
+  spellcheck_comment_title: Markdown spelling check
+  spellcheck_config: .github/.spellcheck.yml
+  spellcheck_dict: .github/.wordlist.txt
+  spellcheck_artifact: spellcheck_comment.txt
+
+jobs:
+  markdown-changed:
+    uses: ./.github/workflows/markdown-changed.yml
+
+  markdown-spellcheck:
+    needs: markdown-changed
+    if: ${{ needs.markdown-changed.outputs.proceed == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      spellcheckreport: './spellcheck-report.txt'
+    outputs:
+      proceed: ${{ steps.report-exists.outputs.proceed }}
+      congrats: ${{ steps.congrats.outputs.proceed }}
+      report: ${{ steps.report-exists.outputs.report }}
+    steps:
+    -
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+    -
+      name: Checkout spellcheck config
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        repository: go-openapi/ci-workflows
+        ref: master  # TODO: retrieve workflow ref
+        sparse-checkout: |
+          ${{ env.spellcheck_config }}
+          ${{ env.spellcheck_dict }}
+        sparse-checkout-cone-mode: false
+        path: ci-tools
+    -
+      name: Copy spellcheck config
+      # TODO: merge with local if present
+      run: |
+        cp ci-tools/${{ env.spellcheck_config }} ${{ env.spellcheck_config }}
+        cp ci-tools/${{ env.spellcheck_dict }} ${{ env.spellcheck_dict }}
+    -
+      name: Spellcheck
+      id: spellcheck
+      uses: crate-ci/typos@master
+      continue-on-error: true
+      with:
+        config_path: ${{ env.spellcheck_config }}
+        source_files: '${{ needs.markdown-changed.outputs.all_changed_files }}'
+        task_name: markdown
+        output_file: ${{ env.spellcheckreport }}
+    # TODO
+    -
+        name: Parse markdownlint JSON report
+        run: |
+          # TODO
+    -
+        name: Prepare PR comment 
+        run: |
+          # TODO
+    -
+        name: Upload PR comment as artifact
+        run: |
+          # TODO
+#    -
+#      name: Comment on success
+#      if: ${{ steps.spellcheck.outcome == 'success' }}
+#      id: congrats
+#      run: |
+#        echo "::notice:: no spelling issue with changed markdown"
+#        echo "proceed=true" >> $GITHUB_OUTPUT
+#
+#        echo "### Your changes to markdown docs show impeccable spelling. 👍" >> $GITHUB_STEP_SUMMARY
+#        echo "" >> $GITHUB_STEP_SUMMARY
+#        echo "> ℹ️ INFO: we use [rojopolis/spellcheck-github-actions](https://github.com/rojopolis/spellcheck-github-actions)" >> $GITHUB_STEP_SUMMARY
+#    -
+#      name: Comment on spellcheck complaining
+#      if: ${{ steps.spellcheck.outcome != 'success' && hashFiles(env.spellcheckreport) != '' }}
+#      id: report-exists
+#      run: |
+#        echo 'report<<EOF' >> $GITHUB_OUTPUT
+#        cat ${{ env.spellcheckreport }}|sed -e '$a\' >> $GITHUB_OUTPUT
+#        echo 'EOF' >> $GITHUB_OUTPUT
+#
+#        if [[ "$(cat ${{ env.spellcheckreport }}|wc -l)" != "0" ]] ; then
+#          echo "proceed=true" >> $GITHUB_OUTPUT
+#          echo "::notice::Detected some spelling issues with changed markdown"
+#          cat ${{ env.lintreport }}|sed -e '$a\'
+#        else
+#          echo "proceed=false" >> $GITHUB_OUTPUT
+#          echo "::notice::No spelling issues with changed markdown"
+#        fi
+#    -
+#      name: Other linter errors
+#      if: ${{ steps.spellcheck.outcome != 'success' && hashFiles(env.spellcheckreport) == '' }}
+#      run: |
+#        echo "::error::spellcheck encountered an error"
+#        exit 1
+#
+#  pr-markdown-spelling-congrats:
+#    needs: markdown-spelling
+#    if: ${{ needs.markdown-spelling.outputs.congrats == 'true' }}
+#    outputs:
+#      run_id: ${{ steps.notify_spelling_congrats.outputs.run_id }}
+#      target_repo: ${{ steps.notify_spelling_congrats.outputs.target_repo }}
+#      pr_number:  ${{ steps.notify_spelling_congrats.outputs.pr_number }}
+#      pr_sha:  ${{ steps.notify_spelling_congrats.outputs.pr_sha }}
+#      artifact_name:  ${{ steps.notify_spelling_congrats.outputs.artifact_name }}
+#      comment_title:  ${{ steps.notify_spelling_congrats.outputs.comment_title }}
+#      reactions: ${{ steps.notify_spelling_congrats.outputs.reactions }}
+#    runs-on: ubuntu-latest
+#    steps:
+#    -
+#      name: Congrats
+#      id: notify_spelling_congrats
+#      run: |
+#         mkdir -p artifacts
+#         read -d '' MSG<<EOF
+#         ### ${{ env.spellcheck_comment_title }}
+#
+#         Spelling in mardown looks good to me. 👍
+#         EOF
+#
+#         export MSG
+#         printenv MSG > "${{ env.artifacts_dir }}/${{ env.spellcheck_artifact }}"
+#
+#         echo "run_id=${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+#         echo "target_repo=${{ github.repository }}" >> "$GITHUB_OUTPUT"
+#         echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+#         echo "pr_sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+#         echo "artifact_name=${{ env.spellcheck_artifact }}" >> "$GITHUB_OUTPUT"
+#         echo "comment_title=${{ env.spellcheck_comment_title }}" >> "$GITHUB_OUTPUT"
+#         echo "reactions=hooray" >> "$GITHUB_OUTPUT"
+#    -
+#      name: Upload comment as artifact
+#      uses: actions/upload-artifact@v4
+#      with:
+#        path: ${{ env.artifacts_dir }}/${{ env.spellcheck_artifact }}
+#        name: ${{ env.spellcheck_artifact }}
+#
+#  pr-comment-spelling-congrats:
+#    name: Create or update comment
+#    needs: pr-markdown-spelling-congrats
+#    uses: go-openapi/ci-workflows/.github/workflows/pr-comment.yml@master #  <- TODO: caller's ref
+#    secrets: inherit
+#    with:
+#      run_id: ${{ needs.pr-markdown-spelling-congrats.outputs.run_id }}
+#      target_repo: ${{ needs.pr-markdown-spelling-congrats.outputs.target_repo }}
+#      pr_number: ${{ needs.pr-markdown-spelling-congrats.outputs.pr_number }}
+#      pr_sha: ${{ needs.pr-markdown-spelling-congrats.outputs.pr_sha }}
+#      artifact_name: ${{ needs.pr-markdown-spelling-congrats.outputs.artifact_name }}
+#      comment_title: ${{ needs.pr-markdown-spelling-congrats.outputs.comment_title }}
+#      reactions:  ${{ needs.pr-markdown-spelling-congrats.outputs.reactions }}
+#
+#  pr-markdown-spelling-report:
+#    needs: markdown-spelling
+#    if: ${{ needs.markdown-spelling.outputs.proceed == 'true' }}
+#    outputs:
+#      run_id: ${{ steps.notify_spelling_report.outputs.run_id }}
+#      target_repo: ${{ steps.notify_spelling_report.outputs.target_repo }}
+#      pr_number:  ${{ steps.notify_spelling_report.outputs.pr_number }}
+#      pr_sha:  ${{ steps.notify_spelling_report.outputs.pr_sha }}
+#      artifact_name:  ${{ steps.notify_spelling_report.outputs.artifact_name }}
+#      comment_title:  ${{ steps.notify_spelling_report.outputs.comment_title }}
+#      reactions: ${{ steps.notify_spelling_report.outputs.reactions }}
+#    runs-on: ubuntu-latest
+#    steps:
+#    -
+#      name: Pre-process spellcheck report
+#      id: preprocess
+#      env:
+#        MSG: ${{ needs.markdown-spelling.outputs.report }}
+#        SED_CMD: .github/workflows/scripts/filter.sed # a sed script to parse and reformat the spellcheck report
+#        JQ_CMD: .github/workflows/scripts/merge.jq # a jq script to dedupe spellcheck reports by file
+#        TMPFILE: /tmp/spellcheck-report.txt
+#      run: |
+#        export MSG
+#        printenv MSG > "${TMPFILE}"
+#        # produces a JSON object:
+#        # {
+#        #   "file.md": [ mispelled word [, ...]]
+#        # }
+#        cat "${TMPFILE}" | sed -n  -f "${SED_CMD}" | jq -s "${JQ_CMD}" > /tmp/preprocessed.txt
+#
+#        echo 'report<<EOF' >> $GITHUB_OUTPUT
+#        cat /tmp/preprocessed.txt|sed -e '$a\' >> $GITHUB_OUTPUT
+#        echo 'EOF' >> $GITHUB_OUTPUT
+#    -
+#      name: Format PR comment
+#      id: comment_formatter
+#      uses: skills/action-text-variables@v3
+#      with:
+#        template-vars: >
+#          {
+#            "text": ${{ steps.preprocess.outputs.report) }}
+#          }
+#        template-text: |
+#          ### ${{ env.spellcheck_comment_title }}
+#
+#          Some mispelled words were detected in the modified .md files. ⚠️
+#
+#          Perhaps they were already there before your changes.
+#
+#          This check is advisory only and not blocking. Please help us improve our documentation.
+#          <br>
+#
+#          ```
+#          ### TODO: range json
+#          {{ text }}
+#          ```
+#    -
+#      name: Slap on the wrist
+#      env:
+#        OUTPUT: "${{ steps.comment_formatter.outputs.updated-text }}"
+#      run: |
+#         mkdir -p "${{ env.artifacts_dir }}"
+#         printenv OUTPUT > "${{ env.artifacts_dir}}/${{ env.spellcheck_artifact }}"
+#
+#         echo "### Changed markdown docs show some mispelled words. ⚠️" >> $GITHUB_STEP_SUMMARY
+#         echo "" >> $GITHUB_STEP_SUMMARY
+#         echo "> ℹ️ INFO: we use [rojopolis/spellcheck-github-actions](https://github.com/rojopolis/spellcheck-github-actions)." >> $GITHUB_STEP_SUMMARY
+#         echo ">" >> $GITHUB_STEP_SUMMARY
+#         echo "> As a general rule, technical terms or acronyms and references to code objects should be backquoted in markdown" >> $GITHUB_STEP_SUMMARY
+#    -
+#      name: Upload comment as artifact
+#      # description: |
+#      #   Calls a trusted shared workflow that temporarily elevates the caller's privileges
+#      #   to write a comment in the PR.
+#      uses: actions/upload-artifact@v4
+#      with:
+#        path: ${{ env.artifacts_dir }}/${{ env.spellcheck_artifact }}
+#        name: ${{ env.spellcheck_artifact }}
+#    -
+#      name: Notify
+#      id: notify_spelling_report
+#      run: |
+#        echo "::notice::Commented pull request ${{ github.event.pull_request.number }}"
+#
+#        echo "run_id=${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+#        echo "target_repo=${{ github.repository }}" >> "$GITHUB_OUTPUT"
+#        echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+#        echo "pr_sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+#        echo "artifact_name=${{ env.spellcheck_artifact }}" >> "$GITHUB_OUTPUT"
+#        echo "comment_title=${{ env.spellcheck_comment_title }}" >> "$GITHUB_OUTPUT"
+#        echo "reactions=confused" >> "$GITHUB_OUTPUT"
+#
+#  pr-comment-spelling-report:
+#    name: Create or update comment
+#    needs: pr-markdown-spelling-report
+#    secrets: inherit
+#    uses: ./.github/workflows/pr-comment.yml
+#    with:
+#      run_id: ${{ needs.pr-markdown-spelling-report.outputs.run_id }}
+#      target_repo: ${{ needs.pr-markdown-spelling-report.outputs.target_repo }}
+#      pr_number: ${{ needs.pr-markdown-spelling-report.outputs.pr_number }}
+#      pr_sha: ${{ needs.pr-markdown-spelling-report.outputs.pr_sha }}
+#      artifact_name: ${{ needs.pr-markdown-spelling-report.outputs.artifact_name }}
+#      comment_title: ${{ needs.pr-markdown-spelling-report.outputs.comment_title }}
+#      reactions:  ${{ needs.pr-markdown-spelling-report.outputs.reactions }}

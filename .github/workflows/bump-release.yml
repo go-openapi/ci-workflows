@@ -1,0 +1,133 @@
+name: Bump Release
+
+permissions:
+  contents: read
+
+# description: |
+#   Manual action to bump the current version and cut a release.
+#
+#   Determine which version to bump.
+#   Push corresponding tag, with comment.
+#   Build a github release on pushed tag.
+
+defaults:
+  run:
+    shell: bash
+
+on:
+  workflow_call:
+    inputs:
+      bump-patch:
+        description: Bump a patch version release
+        type: boolean
+        required: false
+        default: true
+      bump-minor:
+        description: Bump a minor version release
+        type: boolean
+        required: false
+        default: false
+      bump-major:
+        description: Bump a major version release
+        type: boolean
+        required: false
+        default: false
+      tag-message-title:
+        description: Tag message title to prepend to the release notes
+        required: false
+        type: string
+      tag-message-body:
+        description: |
+          Tag message body to prepend to the release notes.
+          (use "|" to replace end of line).
+        required: false
+        type: string
+
+jobs:
+  tag-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      next-tag: ${{ steps.bump-release.outputs.next-tag }}
+    steps:
+      -
+        name: Checkout code
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        with:
+          fetch-depth: 0
+      -
+        name: install svu
+        uses: go-openapi/gh-actions/install/svu@00fc74b63fc83dd6031018ecbeac387ca9131fe2 # v0.1.0
+      -
+        name: Bump release
+        id: bump-release
+        run: |
+          # determine next tag to push
+          NEXT_TAG=""
+          if   [[ '${{ inputs.bump-patch }}' == 'true' ]] ; then
+            NEXT_TAG=$(svu patch)
+          elif [[ '${{ inputs.bump-minor }}' == 'true' ]] ; then
+            NEXT_TAG=$(svu minor)
+          elif [[ '${{ inputs.bump-major }}' == 'true' ]] ; then
+            NEXT_TAG=$(svu major)
+          else
+            echo "::error::invalid options::One of bump-patch, bump-minor or bump-major must be true"
+            exit 1
+          fi
+
+          if [[ -z "${NEXT_TAG}" ]] ; then
+            echo "::error::something went wrong and no tag has been determined. Stopping here"
+            exit 1
+          fi
+
+          echo "next-tag=${NEXT_TAG}" >> "$GITHUB_OUTPUT"
+          echo "::notice title=next-tag:${NEXT_TAG}"
+      -
+        name: Import GPG key
+        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
+        # This is using the GPG signature of bot-go-openapi.
+        #
+        # CI_BOT_GPG_PRIVATE_KEY: the bot gpg key, armored
+        # CI_BOT_GPG_PASSPHRASE: the bot gpg passphrase
+        # CI_BOT_SIGNING_KEY: the fingerprint of the subkey used (space removed)
+        # NOTE(fredbi): extracted w/ gpg -K --homedir gnupg --keyid-format LONG --with-keygrip --fingerprint --with-subkey-fingerprint
+        with:
+          gpg_private_key: ${{ secrets.CI_BOT_GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.CI_BOT_GPG_PASSPHRASE }}
+          fingerprint: ${{ secrets.CI_BOT_SIGNING_KEY }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+          git_tag_gpgsign: true
+      -
+        name: Create and sign tag
+        env:
+          NEXT_TAG: ${{ steps.bump-release.outputs.next-tag }}
+          MESSAGE_TITLE: ${{ inputs.tag-message-title }}
+          MESSAGE_BODY: ${{ inputs.tag-message-body }}
+        run: |
+          # construct the tag message
+          set -x
+          MESSAGE="${MESSAGE_TITLE}"
+          if [[ -n "${MESSAGE_BODY}" ]] ; then
+            BODY=$(echo "${MESSAGE_BODY}"|tr '|' '\n')
+            MESSAGE=$(printf "%s\n%s\n" "${MESSAGE}" "${BODY}")
+          fi
+          echo "::notice title=tag-message:${MESSAGE}"
+
+          git tag -s -m "${MESSAGE}" "${NEXT_TAG}"
+          git tag -v "${NEXT_TAG}"
+          git push origin "${NEXT_TAG}"
+
+  gh-release:
+    # trigger release creation explictly.
+    # The previous tagging action does not trigger the normal release workflow
+    # (github prevents cascading triggers from happening).
+    name: Create release
+    needs: [ tag-release ]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.tag-release.outputs.next-tag}}
+    secrets: inherit

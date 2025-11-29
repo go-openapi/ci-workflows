@@ -1,0 +1,156 @@
+name: go test
+
+permissions:
+  contents: read
+  pull-requests: read
+
+on:
+  workflow_call:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lint:
+    name: Go lint mono-repo
+    runs-on: ubuntu-latest
+    steps:
+      -
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        with:
+          fetch-depth: 0
+      -
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        with:
+          go-version: stable
+          check-latest: true
+          cache: true
+          cache-dependency-path: '**/go.sum'
+      -
+        name: Detect if mono-repo
+        id: detect-monorepo
+        run: |
+          count_modules=$(go list -m|wc -l)
+          if [[ "${count_module}" -gt 1 ]] ; then
+            echo "is_monorepo=true" >> "${GITHUB_OUTPUT}"
+            exit
+          fi
+          echo "is_monorepo=false" >> "${GITHUB_OUTPUT}"
+      -
+        name: Install golangci-lint
+        if: ${{ steps.detect-monorepo.outputs == 'true' }}
+        uses: golangci/golangci-lint-action@e7fa5ac41e1cf5b7d48e45e42232ce7ada589601 # v9.1.0
+        with:
+          version: latest
+          skip-cache: true
+          install-only: true
+      -
+        name: Lint multiple modules
+        if: ${{ steps.detect-monorepo.outputs == 'true' }}
+        # golangci-lint doesn't support go.work to lint multiple modules in one single pass
+        # TODO: golangci-action v9.1+ has a built-in mono repo detection setup.
+        run: |
+          set -euxo pipefail
+
+          git fetch origin master
+          git show --no-patch --oneline origin/master
+
+          while read -r module_location ; do
+            pushd "${module_location}"
+            golangci-lint run --new-from-rev origin/master
+            popd
+          done < <(go list -f '{{.Dir}}' -m)
+
+  test:
+    name: Unit tests mono-repo
+    needs: [ lint ]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        go_version: ['oldstable', 'stable' ]
+    steps:
+      -
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+      -
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        with:
+          go-version: '${{ matrix.go_version }}'
+          check-latest: true
+          cache: true
+          cache-dependency-path: '**/go.sum'
+      -
+        name: Install gotestsum
+        uses: go-openapi/gh-actions/install/gotestsum@2c8f8152814933c4cead92a51558699238ee9565
+      - 
+        name: Run unit tests on all modules in this repo
+        run: |
+          # when go1.25 becomes the oldstable, we may replace this bash with "go test work"
+          declare -a ALL_MODULES
+          BASH_MAJOR=$(echo "${BASH_VERSION}"|cut -d'.' -f1)
+          if [[ "${BASH_MAJOR}" -ge 4 ]] ; then
+            mapfile ALL_MODULES < <(go list -f '{{.Dir}}/...' -m)
+          else
+            # for older bash versions, e.g. on macOS runner. This fallback will eventually disappear.
+            while read -r line ; do
+              ALL_MODULES+=("${line}")
+            done < <(go list -f '{{.Dir}}/...' -m)
+          fi
+          echo "::notice title=Modules found::${ALL_MODULES[@]}"
+
+          # with go.work file enabled, go test recognizes sub-modules and collects all packages to be covered
+          # without specifying -coverpkg.
+          gotestsum \
+            --jsonfile 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json' \
+            -- \
+            -race \
+            -p 2 \
+            -count 1 \
+            -timeout=20m \
+            -coverprofile='unit.coverage.${{ matrix.os }}-${{ matrix.go }}.out' \
+            -covermode=atomic \
+            ${ALL_MODULES[@]}
+      -
+        name: Upload coverage artifacts
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          # *.coverage.* pattern is automatically detected by codecov
+          path: '**/*.coverage.*.out'
+          name: 'unit.coverage.${{ matrix.os }}-${{ matrix.go }}'
+          retention-days: 1
+      -
+        name: Upload test report artifacts
+        # upload report even if test fail. BTW, this is when they are valuable.
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          path: '**/unit.report.*.json'
+          name: 'unit.report.${{ matrix.os }}-${{ matrix.go }}'
+          retention-days: 1
+
+  fuzz-test:
+    uses: ./.github/workflows/fuzz-test.yml
+
+  test-complete:
+    # description: |
+    #   Be explicit about all tests being passed. This allows for setting up only a few status checks on PRs.
+    name: tests completed
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Tests completed
+        run: |
+          echo "::notice title=Success:All tests passed"
+
+  collect-coverage:
+    needs: [test-complete]
+    if: ${{ !cancelled() && needs.test-complete.result == 'success' }}
+    uses: ./.github/workflows/collect-coverage.yml
+
+  collect-reports:
+    name: collect test reports
+    needs: [test]
+    if: ${{ !cancelled() }}
+    uses: ./.github/workflows/collect-reports.yml

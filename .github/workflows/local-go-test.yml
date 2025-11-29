@@ -1,5 +1,11 @@
 name: go test
-# description: This workflow mimics how a go-openapi repo would typically invoke the common workflow.
+
+permissions:
+  pull-requests: read
+  contents: read
+
+# description: |
+# This workflow mimics how a go-openapi repo would typically invoke the common workflow.
 
 on:
   push:
@@ -7,10 +13,6 @@ on:
       - master
 
   pull_request:
-
-permissions:
-  pull-requests: read
-  contents: read
 
 jobs:
   test:

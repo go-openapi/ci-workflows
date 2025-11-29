@@ -6,6 +6,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   dependabot:
     permissions:
@@ -31,46 +35,24 @@ jobs:
           PR_URL: ${{github.event.pull_request.html_url}}
           GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
         run: gh pr merge --auto --rebase "$PR_URL"
-      -
-        name: Auto-merge dependabot PRs for go-openapi patches
-        if: >-
-          ${{
-            contains(steps.metadata.outputs.dependency-group, 'go-openapi-dependencies') &&
-            (
-              steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
-              steps.metadata.outputs.update-type == 'version-update:semver-patch'
-            )
-          }}
-        env:
-          PR_URL: ${{github.event.pull_request.html_url}}
-          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        run: gh pr merge --auto --rebase "$PR_URL"
-      -
-        name: Auto-merge dependabot PRs for golang.org updates
-        if: ${{ contains(steps.metadata.outputs.dependency-group, 'golang-org-dependencies') }}
-        env:
-          PR_URL: ${{github.event.pull_request.html_url}}
-          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        run: gh pr merge --auto --rebase "$PR_URL"
 
-  # Auto merge is current disabled: we need automatic PRs to swap identity (e.g. using a Github App),
-  # so the pull_request event is properly captured and the PR can validate.
-  #actions-bot:
-  #  permissions:
-  #    contents: write
-  #    pull-requests: write
-  #  runs-on: ubuntu-latest
-  #  if: ${{ github.event.pull_request.user.login == 'github-actions[bot]' }}
-  #  steps:
-  #    -
-  #      name: Auto-approve all github-actions bot PRs
-  #      env:
-  #        PR_URL: ${{github.event.pull_request.html_url}}
-  #        GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
-  #      run: gh pr review --approve "$PR_URL"
-  #    -
-  #      name: Auto-merge github-actions bot PRs
-  #      env:
-  #        PR_URL: ${{github.event.pull_request.html_url}}
-  #        GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
-  #      run: gh pr merge --auto --rebase "$PR_URL"
+  actions-bot:
+    # description: |
+    #   Auto merge for go-openapi bot.
+    #   The regular actions-bot user cannot approve and merge its own pull requests,
+    #   We use another bot user to update content to be approved/auto-merged by actions-bot.
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    if: ${{ github.event.pull_request.user.login == 'bot-go-openapi[bot]' }}
+    env:
+      PR_URL: ${{github.event.pull_request.html_url}}
+      GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+    steps:
+      -
+        name: Auto-approve all bot-go-openapi PRs
+        run: gh pr review --approve "$PR_URL"
+      -
+        name: Auto-merge bot-go-openapi PRs
+        run: gh pr merge --auto --rebase "$PR_URL"

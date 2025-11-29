@@ -1,15 +1,19 @@
 name: Release
 
-on:
-  workflow_call:
-
 permissions:
   contents: read
 
 # description: |
-#   Build a github release on pushed tag.
+#   Build a github release on either pushed tag or a manual workflow call.
 #
-#   The only available asset is a release note.
+#   At this moment, the only available asset is a release note.
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
 
 jobs:
   gh-release:
@@ -20,25 +24,33 @@ jobs:
     steps:
       -
         name: Checkout code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
         with:
           fetch-depth: 0
       -
         name: Extract tag message
-        id: get_message
-        # git-cliff may or may not pick the current tag message, difficult to tell when
-        # this works. We extract the tag message explicitly.
+        id: get-message
+        # tag message is not retrieved unless we fetch the ref explictly
         run: |
-          MESSAGE=$(git tag -l '${{ github.ref_name }}' --format='%(contents:subject)
+          set -x
+
+          git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+          MESSAGE=$(git tag -l '${{ inputs.tag }}' --format='%(contents:subject)
 
           %(contents:body)
           ')
           export MESSAGE
-          echo "message<<EOF" >> "${GITHUB_OUTPUT}"
-          printenv MESSAGE >> "${GITHUB_OUTPUT}"
-          echo 'EOF' >> "${GITHUB_OUTPUT}"
+          {
+            echo "message<<EOF"
+            printenv MESSAGE
+            echo 'EOF'
+          } >> "${GITHUB_OUTPUT}"
+
+          echo "Message in git tag ${{ inputs.tag }}"
+          echo "$MESSAGE"
       -
         name: Generate release notes
+        # this uses git-cliff to generate a release note from the commit history
         id: notes
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -48,9 +60,11 @@ jobs:
           config: '.cliff.toml'
           args: >-
             --current
-            --with-tag-message '${{ steps.get_message.outputs.message }}'
+            --with-tag-message '${{ steps.get-message.outputs.message }}'
       -
         name: Create github release
         uses: softprops/action-gh-release@5be0e66d93ac7ed76da52eca8bb058f665c3a5fe # v2.4.2
         with:
           body: ${{ steps.notes.outputs.content }}
+          tag_name: ${{ inputs.tag }}
+          generate_release_notes: false # skip auto-generated release notes from github API

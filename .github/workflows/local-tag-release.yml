@@ -1,0 +1,24 @@
+name: Release on tag
+
+permissions:
+  contents: read
+
+# description: |
+#   Build a github release on pushed tag.
+#
+#   The only available asset is a release note.
+
+on:
+  push:
+    tags:
+      - v[0-9]+*
+
+jobs:
+  gh-release:
+    name: Create release
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
