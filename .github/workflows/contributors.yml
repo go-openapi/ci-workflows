@@ -63,7 +63,7 @@ jobs:
         assignees: fredbi
         reviewers: fredbi
         sign-commits: true
-        signoff: false
+        signoff: true # DCO
 
   auto-merge:
     # description: |

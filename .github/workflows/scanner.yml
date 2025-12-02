@@ -3,7 +3,10 @@ name: Vulnerability scans
 on:
   workflow_call:
 
-permissions: read-all
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 # description: |
 #   A fast vulnerability scan on the repo that effectively supplements ossf scorecard and codesql
