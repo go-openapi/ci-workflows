@@ -17,8 +17,23 @@ defaults:
 
 jobs:
   fuzz-test:
-    name: fuzz test
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.fuzz-matrix.outputs.matrix }}
+    steps:
+      -
+        name: Fuzz tests matrix
+        id: fuzz-matrix
+        run: |
+          fuzz_tests=$(go test -list Fuzz -json ./... |jq  '.|select(.Action == "output")|select( (.Output|test("^ok"))|not )|.Output|gsub("\n";"")'| jq --slurp)
+          echo "matrix=${fuzz_test}" >> "${GITHUB_OUTPUT}"
+
+  fuzz-execute:
+    name: fuzz test
+    needs: [fuzz-test]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJson(needs.fuzz-test.outputs.matrix) }}
     env:
       CORPUS_MAX_SIZE_MB: 250
       FUZZ_TIME: 1m30s
