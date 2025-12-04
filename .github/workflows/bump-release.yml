@@ -53,12 +53,12 @@ jobs:
     steps:
       -
         name: Checkout code
-        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 0
       -
         name: install svu
-        uses: go-openapi/gh-actions/install/svu@00fc74b63fc83dd6031018ecbeac387ca9131fe2 # v0.1.0
+        uses: go-openapi/gh-actions/install/svu@ca5928fe952ce03d9e6a61a8284a508a9cc8d4f1 # v1.0.0
       -
         name: Bump release
         id: bump-release
