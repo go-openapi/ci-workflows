@@ -20,24 +20,144 @@ Common Continuous Integration (`CI`) workflows and setup for go-openapi repos.
 
 ## Status
 
-Unreleased.
+Development is active. We are regularly adding more shared workflows to standardize CI across go-openapi repos.
 
-Initial setup. Content may evolve with breaking changes.
-
-> NOTE: at this moment, it is difficult to share the dependabot and golangci-lint configurations,
+> NOTE: at this moment, it is difficult to share the configurations for dependabot and golangci-lint,
 > so these are not shared yet.
 
 ## Basic usage
 
+You reuse a workflow like so:
+
+```yaml
+name: go test
+
+permissions:
+  pull-requests: read
+  contents: read
+
+on:
+  push:
+    branches:
+      - master
+
+  pull_request:
+
+jobs:
+  test:
+    uses: go-openapi/ci-workflow/.github/workflows/go-test.yml@master
+    secrets: inherit
+```
+
+It is recommended to pin the git ref `master` with a commit sha, and let dependabot keep you up to date. Like so:
+
+```yaml
+    uses: go-openapi/ci-workflow/.github/workflows/go-test.yml@b28a8b978a5ee5b7f4241ffafd6cc6163edb5dfd # v0.1.0
+```
+
+### Permissions
+
+Make sure your job permissions match the requirements of the called shared workflow.
+
+Example:
+```yaml
+name: "CodeQL"
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+    paths-ignore: # remove this clause if CodeQL is a required check
+      - '**/*.md'
+  schedule:
+    - cron: '39 19 * * 5'
+
+permissions:
+  contents: read
+
+jobs:
+  codeql:
+    permissions:  # <- grant permissions at the job level that match the requirements of the called workflow
+      contents: read
+      security-events: write
+    uses: ./.github/workflows/codeql.yml
+    secrets: inherit
+```
+
+## Available workflows `[v0.1.0]`
+
+### Dependencies automation
+
+* auto-merge.yml:
+  * auto-merge dependabot updates,  with dependency group rules
+  * auto-merge go-openapi bot updates
+
+### Test automation
+
+* go-test.yml: go unit tests **TODO** support for mono-repos
+  * includes:
+    * fuzz-test.yml: orchestrates fuzz testing with a cached corpus
+    * collect-coverage.yml: (common) collect & publish test coverage (to codecov)
+    * collect-reports.yml: (common) collect & publish test reports (to codecov and github)
+
+### Security 
+
+* codeql.yml: CodeQL workflow for go and github actions
+* scanner.yml: trivy & govulncheck scans
+
+### Release automation
+
+* bump-release.yml: manually triggered workflow to cut a release
+* tag-release.yml: cut a release on push tag
+* release.yml: (common) release & release notes build
+
+### Documentation quality
+
+* contributors.yml: updates CONTRIBUTORS.md
+
 ## Motivation
 
-It took a while (well a something like 10 years...), but we eventually managed to align all checks, tests and
+It took a while (well something like 10 years...), but we eventually managed to align all checks, tests and
 dependabot rules declared in the family of go-openapi repos.
 
 Now we'd like to be able to maintain, enrich and improve these checks without
 worrying too much about the burden of replicating the stuff about a dozen times.
 
+## Change log
+
+See <https://github.com/go-openapi/ci-workflows/releases>
+
+## Licensing
+
+This content ships under the [SPDX-License-Identifier: Apache-2.0](./LICENSE).
+
+<!--
+## Limitations
+-->
+
+## Other documentation
+
+* [All-time contributors](./CONTRIBUTORS.md)
+* [Contributing guidelines](.github/CONTRIBUTING.md)
+* [Maintainers documentation](docs/MAINTAINERS.md)
+* [Code style](docs/STYLE.md)
+
+## Cutting a new release
+
+Maintainers can cut a new release by either:
+
+* running [this workflow](https://github.com/go-openapi/gh-actions/actions/workflows/local-bump-release.yml)
+* or pushing a semver tag
+  * signed tags are preferred
+  * The tag message is prepended to release notes
+
 ## Contemplated enhancements
+
+Most urgent:
+
+* [ ] mono-repo test
+* [ ] mono-repo release
 
 In no particular order:
 
@@ -69,34 +189,6 @@ In no particular order:
 To be reworked:
 * [ ] doc: add markdown linting for docs
 * [ ] doc: add spellcheck for docs (and code?)
-
-## Change log
-
-See <https://github.com/go-openapi/ci-workflows/releases>
-
-## Licensing
-
-This content ships under the [SPDX-License-Identifier: Apache-2.0](./LICENSE).
-
-<!--
-## Limitations
--->
-
-## Other documentation
-
-* [All-time contributors](./CONTRIBUTORS.md)
-* [Contributing guidelines](.github/CONTRIBUTING.md)
-* [Maintainers documentation](docs/MAINTAINERS.md)
-* [Code style](docs/STYLE.md)
-
-## Cutting a new release
-
-Maintainers can cut a new release by either:
-
-* running [this workflow](https://github.com/go-openapi/gh-actions/actions/workflows/local-bump-release.yml)
-* or pushing a semver tag
-  * signed tags are preferred
-  * The tag message is prepended to release notes
 
 <!-- Badges: status  -->
 [test-badge]: https://github.com/go-openapi/ci-workflows/actions/workflows/go-test.yml/badge.svg
