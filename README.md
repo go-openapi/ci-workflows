@@ -191,19 +191,19 @@ To be reworked:
 * [ ] doc: add spellcheck for docs (and code?)
 
 <!-- Badges: status  -->
-[test-badge]: https://github.com/go-openapi/ci-workflows/.github/workflows/go-test.yml/badge.svg
-[test-url]: https://github.com/go-openapi/ci-workflows/.github/workflows/go-test.yml
+[test-badge]: https://github.com/go-openapi/ci-workflows/.github/workflows/local-go-test.yml/badge.svg
+[test-url]: https://github.com/go-openapi/ci-workflows/.github/workflows/local-go-test.yml
 [cov-badge]: https://codecov.io/gh/go-openapi/ci-workflows/branch/master/graph/badge.svg
 [cov-url]: https://codecov.io/gh/go-openapi/ci-workflows
-[vuln-scan-badge]: https://github.com/go-openapi/ci-workflows/.github/workflows/scanner.yml/badge.svg
-[vuln-scan-url]: https://github.com/go-openapi/ci-workflows/.github/workflows/scanner.yml
-[codeql-badge]: https://github.com/go-openapi/ci-workflows/.github/workflows/codeql.yml/badge.svg
-[codeql-url]: https://github.com/go-openapi/ci-workflows/.github/workflows/codeql.yml
+[vuln-scan-badge]: https://github.com/go-openapi/ci-workflows/.github/workflows/local-scanner.yml/badge.svg
+[vuln-scan-url]: https://github.com/go-openapi/ci-workflows/.github/workflows/local-scanner.yml
+[codeql-badge]: https://github.com/go-openapi/ci-workflows/.github/workflows/local-codeql.yml/badge.svg
+[codeql-url]: https://github.com/go-openapi/ci-workflows/.github/workflows/local-codeql.yml
 <!-- Badges: release & docker images  -->
-[release-badge]: https://badge.fury.io/gh/go-openapi%2Fci-workflowser.svg
-[release-url]: https://badge.fury.io/gh/go-openapi%2Fci-workflowser
-[gomod-badge]: https://badge.fury.io/go/github.com%2Fgo-openapi%2Fci-workflowser.svg
-[gomod-url]: https://badge.fury.io/go/github.com%2Fgo-openapi%2Fci-workflowser
+[release-badge]: https://badge.fury.io/gh/go-openapi%2Fci-workflows.svg
+[release-url]: https://badge.fury.io/gh/go-openapi%2Fci-workflows
+[gomod-badge]: https://badge.fury.io/go/github.com%2Fgo-openapi%2Fci-workflows.svg
+[gomod-url]: https://badge.fury.io/go/github.com%2Fgo-openapi%2Fci-workflows
 <!-- Badges: code quality  -->
 [gocard-badge]: https://goreportcard.com/badge/github.com/go-openapi/ci-workflows
 [gocard-url]: https://goreportcard.com/report/github.com/go-openapi/ci-workflows
