@@ -45,7 +45,7 @@ jobs:
           hide-progress: false
           output: trivy-code-report.sarif
           scanners: vuln,secret
-          version: v0.68.0
+          version: v0.68.1
           exit-code: 0
       -
         name: Upload trivy findings to code scanning dashboard
