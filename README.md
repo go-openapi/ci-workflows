@@ -147,7 +147,7 @@ This content ships under the [SPDX-License-Identifier: Apache-2.0](./LICENSE).
 
 Maintainers can cut a new release by either:
 
-* running [this workflow](https://github.com/go-openapi/ci-workflows/.github/workflows/local-bump-release.yml)
+* running [this workflow](https://github.com/go-openapi/ci-workflows/actions/workflows/local-bump-release.yml)
 * or pushing a semver tag
   * signed tags are preferred
   * The tag message is prepended to release notes
@@ -191,14 +191,14 @@ To be reworked:
 * [ ] doc: add spellcheck for docs (and code?)
 
 <!-- Badges: status  -->
-[test-badge]: https://github.com/go-openapi/ci-workflows/.github/workflows/local-go-test.yml/badge.svg
-[test-url]: https://github.com/go-openapi/ci-workflows/.github/workflows/local-go-test.yml
+[test-badge]: https://github.com/go-openapi/ci-workflows/actions/workflows/local-go-test.yml/badge.svg
+[test-url]: https://github.com/go-openapi/ci-workflows/actions/workflows/local-go-test.yml
 [cov-badge]: https://codecov.io/gh/go-openapi/ci-workflows/branch/master/graph/badge.svg
 [cov-url]: https://codecov.io/gh/go-openapi/ci-workflows
-[vuln-scan-badge]: https://github.com/go-openapi/ci-workflows/.github/workflows/local-scanner.yml/badge.svg
-[vuln-scan-url]: https://github.com/go-openapi/ci-workflows/.github/workflows/local-scanner.yml
-[codeql-badge]: https://github.com/go-openapi/ci-workflows/.github/workflows/local-codeql.yml/badge.svg
-[codeql-url]: https://github.com/go-openapi/ci-workflows/.github/workflows/local-codeql.yml
+[vuln-scan-badge]: https://github.com/go-openapi/ci-workflows/actions/workflows/local-scanner.yml/badge.svg
+[vuln-scan-url]: https://github.com/go-openapi/ci-workflows/actions/workflows/local-scanner.yml
+[codeql-badge]: https://github.com/go-openapi/ci-workflows/actions/workflows/local-codeql.yml/badge.svg
+[codeql-url]: https://github.com/go-openapi/ci-workflows/actions/workflows/local-codeql.yml
 <!-- Badges: release & docker images  -->
 [release-badge]: https://badge.fury.io/gh/go-openapi%2Fci-workflows.svg
 [release-url]: https://badge.fury.io/gh/go-openapi%2Fci-workflows
