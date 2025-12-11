@@ -51,6 +51,8 @@ jobs:
       GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
     steps:
       -
+        name: Checkout repository
+      -
         name: Auto-approve all bot-go-openapi PRs
         run: gh pr review --approve "$PR_URL"
       -
