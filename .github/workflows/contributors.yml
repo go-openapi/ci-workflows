@@ -1,10 +1,60 @@
 name: Contributors
 
-on:
-  workflow_call:
-
 permissions:
   contents: read
+
+on:
+  workflow_call:
+    inputs:
+      enable-commit-signing:
+        description: |
+          Enable GPG commit signing by a bot user.
+
+          When enabled, commits in the pull request will be signed with the bot's GPG key.
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      github-app-id:
+        description: |
+          GitHub App ID for bot user authentication.
+
+          Default for go-openapi: CI_BOT_APP_ID
+
+          Required to create pull requests as the bot user.
+        required: false
+      github-app-private-key:
+        description: |
+          GitHub App private key in PEM format.
+
+          Default for go-openapi: CI_BOT_APP_PRIVATE_KEY
+
+          Required to create pull requests as the bot user.
+        required: false
+      gpg-private-key:
+        description: |
+          GPG private key in armored format for signing commits.
+
+          Default for go-openapi: CI_BOT_GPG_PRIVATE_KEY
+
+          Required when enable-commit-signing is true.
+        required: false
+      gpg-passphrase:
+        description: |
+          Passphrase to unlock the GPG private key.
+
+          Default for go-openapi: CI_BOT_GPG_PASSPHRASE
+
+          Required when enable-commit-signing is true.
+        required: false
+      gpg-fingerprint:
+        description: |
+          Fingerprint of the GPG signing key (spaces removed).
+
+          Default for go-openapi: CI_BOT_SIGNING_KEY
+
+          Required when enable-commit-signing is true.
+        required: false
 
 jobs:
   update-contributors:
@@ -32,22 +82,23 @@ jobs:
           rm -rf contributors.json
           mv contributors.md CONTRIBUTORS.md
       -
-        name: Switch to go-openapi bot user
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
-        id: app-token
+        name: Configure bot credentials
+        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@6c7952706aa7afa9141262485767d9270ef5b00b # master
+        id: bot-credentials
+        # For go-openapi repos (using secrets: inherit):
+        #   Falls back to: CI_BOT_APP_ID, CI_BOT_APP_PRIVATE_KEY, CI_BOT_GPG_PRIVATE_KEY, etc.
+        #
+        # For other orgs: explicitly pass secrets with your custom names
         with:
-          app-id: ${{ secrets.CI_BOT_APP_ID }}
-          private-key: ${{ secrets.CI_BOT_APP_PRIVATE_KEY }}
-      -
-        name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
-        with:
-          gpg_private_key: ${{ secrets.CI_BOT_GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.CI_BOT_GPG_PASSPHRASE }}
-          fingerprint: ${{ secrets.CI_BOT_SIGNING_KEY }}
-          git_user_signingkey: true
-          git_commit_gpgsign: true
-          git_tag_gpgsign: true
+          enable-github-app: 'true'
+          github-app-id: ${{ secrets.github-app-id || secrets.CI_BOT_APP_ID }}
+          github-app-private-key: ${{ secrets.github-app-private-key || secrets.CI_BOT_APP_PRIVATE_KEY }}
+          enable-gpg-signing: ${{ inputs.enable-commit-signing }}
+          gpg-private-key: ${{ secrets.gpg-private-key || secrets.CI_BOT_GPG_PRIVATE_KEY }}
+          gpg-passphrase: ${{ secrets.gpg-passphrase || secrets.CI_BOT_GPG_PASSPHRASE }}
+          gpg-fingerprint: ${{ secrets.gpg-fingerprint || secrets.CI_BOT_SIGNING_KEY }}
+          enable-commit-signing: 'true'
+          enable-tag-signing: 'false'
       -
         name: Create a PR
         id: create-pull-request
@@ -57,12 +108,12 @@ jobs:
           branch: doc/contributors-bot
           delete-branch: true
           title: "doc: updated contributors file"
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ steps.bot-credentials.outputs.app-token }}
           labels: "bot"
           draft: false
           assignees: fredbi
           reviewers: fredbi
-          sign-commits: true
+          sign-commits: ${{ inputs.enable-commit-signing }}
           signoff: true # DCO
 
   auto-merge:

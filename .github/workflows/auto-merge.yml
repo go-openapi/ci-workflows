@@ -2,6 +2,24 @@ name: Dependabot auto-merge
 
 on:
   workflow_call:
+    inputs:
+      enable-organization-bot:
+        description: |
+          Enable automatic approval and merge of PRs initiated by a bot.
+
+        type: boolean
+        required: false
+        default: true
+      organization-bot:
+        description: |
+          The bot name for your organization,
+          for which you wish to enable auto-merge.
+
+          Example: bot-go-openapi[bot]
+
+        type: string
+        required: false
+        default: 'bot-go-openapi[bot]'
 
 permissions:
   contents: read
@@ -50,7 +68,7 @@ jobs:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
-    if: ${{ github.event.pull_request.user.login == 'bot-go-openapi[bot]' }}
+    if: ${{ inputs.enable-organization-bot == 'true' && github.event.pull_request.user.login == inputs.organization-bot }}
     env:
       PR_URL: ${{github.event.pull_request.html_url}}
       GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
