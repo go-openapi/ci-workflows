@@ -87,32 +87,40 @@ jobs:
         name: Wait for all workflow runs to complete
         run: |
           PR_NUMBER=$(echo "$PR_URL" | grep -oP '\d+$')
-          echo "Waiting for all checks to complete on PR #${PR_NUMBER}..."
+          echo "Waiting for all workflow runs to complete on PR #${PR_NUMBER}..."
+
+          # Get the PR's head SHA
+          HEAD_SHA=$(gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid')
+          echo "Head SHA: ${HEAD_SHA}"
 
           MAX_WAIT=600  # 10 minutes max wait
           ELAPSED=0
           SLEEP_INTERVAL=10
 
           while [ $ELAPSED -lt $MAX_WAIT ]; do
-            # Get all workflow runs for this PR's head SHA
-            PR_DATA=$(gh pr view "$PR_NUMBER" --json headRefOid,statusCheckRollup)
-            HEAD_SHA=$(echo "$PR_DATA" | jq -r '.headRefOid')
+            # Get all workflow runs for this SHA using the GitHub API
+            RUNS=$(gh api "/repos/${{ github.repository }}/actions/runs?head_sha=${HEAD_SHA}&per_page=100" --jq '.workflow_runs')
 
-            # Check if any workflows are still in progress
-            IN_PROGRESS=$(echo "$PR_DATA" | jq -r '.statusCheckRollup[] | select(.status == "IN_PROGRESS" or .status == "QUEUED" or .status == "PENDING") | .name' | wc -l)
+            # Count how many are still in progress, queued, or waiting
+            IN_PROGRESS=$(echo "$RUNS" | jq '[.[] | select(.status == "in_progress" or .status == "queued" or .status == "waiting")] | length')
 
             if [ "$IN_PROGRESS" -eq 0 ]; then
               echo "::notice::All workflow runs completed for SHA ${HEAD_SHA}"
+              TOTAL_RUNS=$(echo "$RUNS" | jq 'length')
+              echo "Total workflow runs: ${TOTAL_RUNS}"
               break
             fi
 
-            echo "Still waiting for $IN_PROGRESS check(s) to complete..."
+            # Show which workflows are still running
+            RUNNING=$(echo "$RUNS" | jq -r '.[] | select(.status == "in_progress" or .status == "queued" or .status == "waiting") | .name' | tr '\n' ', ' | sed 's/,$//')
+            echo "Still waiting for ${IN_PROGRESS} workflow run(s): ${RUNNING}"
+
             sleep $SLEEP_INTERVAL
             ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
           done
 
           if [ $ELAPSED -ge $MAX_WAIT ]; then
-            echo "::warning::Timeout waiting for all checks to complete, proceeding anyway"
+            echo "::warning::Timeout waiting for all workflow runs to complete, proceeding anyway"
           fi
       -
         name: Auto-merge PR
