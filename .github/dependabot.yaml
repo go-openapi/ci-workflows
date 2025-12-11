@@ -3,8 +3,7 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "friday"
+      interval: "daily"
     open-pull-requests-limit: 2          # <- default is 5
     groups:                              # <- group all github actions updates in a single PR
       # 1. development-dependencies are auto-merged
@@ -29,8 +28,7 @@ updates:
     # 4. other dependencies require a manual merge
     directory: "/"
     schedule:
-      interval: "weekly"
-      day: "friday"
+      interval: "daily"
     open-pull-requests-limit: 4
     groups:
       development-dependencies:
