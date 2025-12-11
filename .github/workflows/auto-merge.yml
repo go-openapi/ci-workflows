@@ -54,5 +54,44 @@ jobs:
         name: Auto-approve all bot-go-openapi PRs
         run: gh pr review --approve "$PR_URL"
       -
+        name: Wait for all workflow runs to complete
+        run: |
+          PR_NUMBER=$(echo "$PR_URL" | grep -oP '\d+$')
+          echo "Waiting for all workflow runs to complete on PR #${PR_NUMBER}..."
+
+          # Get the PR's head SHA
+          HEAD_SHA=$(gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid')
+          echo "Head SHA: ${HEAD_SHA}"
+
+          MAX_WAIT=600  # 10 minutes max wait
+          ELAPSED=0
+          SLEEP_INTERVAL=10
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            # Get all workflow runs for this SHA using the GitHub API
+            RUNS=$(gh api "/repos/${{ github.repository }}/actions/runs?head_sha=${HEAD_SHA}&per_page=100" --jq '.workflow_runs')
+
+            # Count how many are still in progress, queued, or waiting
+            IN_PROGRESS=$(echo "$RUNS" | jq '[.[] | select(.status == "in_progress" or .status == "queued" or .status == "waiting")] | length')
+
+            if [ "$IN_PROGRESS" -eq 0 ]; then
+              echo "::notice::All workflow runs completed for SHA ${HEAD_SHA}"
+              TOTAL_RUNS=$(echo "$RUNS" | jq 'length')
+              echo "Total workflow runs: ${TOTAL_RUNS}"
+              break
+            fi
+
+            # Show which workflows are still running
+            RUNNING=$(echo "$RUNS" | jq -r '.[] | select(.status == "in_progress" or .status == "queued" or .status == "waiting") | .name' | tr '\n' ', ' | sed 's/,$//')
+            echo "Still waiting for ${IN_PROGRESS} workflow run(s): ${RUNNING}"
+
+            sleep $SLEEP_INTERVAL
+            ELAPSED=$((ELAPSED + SLEEP_INTERVAL))
+          done
+
+          if [ $ELAPSED -ge $MAX_WAIT ]; then
+            echo "::warning::Timeout waiting for all workflow runs to complete, proceeding anyway"
+          fi
+      -
         name: Auto-merge bot-go-openapi PRs
         run: gh pr merge --auto --rebase "$PR_URL"
