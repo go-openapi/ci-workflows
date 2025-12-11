@@ -42,6 +42,14 @@ on:
           (use "|" to replace end of line).
         required: false
         type: string
+      enable-tag-signing:
+        description: |
+          Enable PGP tag-signing by a bot user.
+
+          When enabled, you must pass the GPG secrets to this workflow.
+        required: false
+        type: boolean
+        default: true
       cliff-config:
         type: string
         required: false
@@ -52,6 +60,31 @@ on:
         required: false
         default: 'https://raw.githubusercontent.com/go-openapi/ci-workflows/refs/heads/master/.cliff.toml'
         description: 'URL to the remote git-cliff config file (used if local config does not exist)'
+    secrets:
+      gpg-private-key:
+        description: |
+          GPG private key in armored format for signing tags.
+
+          Default for go-openapi: CI_BOT_GPG_PRIVATE_KEY
+
+          Required when enable-tag-signing is true.
+        required: false
+      gpg-passphrase:
+        description: |
+          Passphrase to unlock the GPG private key.
+
+          Default for go-openapi: CI_BOT_GPG_PASSPHRASE
+
+          Required when enable-tag-signing is true.
+        required: false
+      gpg-fingerprint:
+        description: |
+          Fingerprint of the GPG signing key (spaces removed).
+
+          Default for go-openapi: CI_BOT_SIGNING_KEY
+
+          Required when enable-tag-signing is true.
+        required: false
 
 jobs:
   tag-release:
@@ -94,21 +127,23 @@ jobs:
           echo "next-tag=${NEXT_TAG}" >> "$GITHUB_OUTPUT"
           echo "::notice title=next-tag:${NEXT_TAG}"
       -
-        name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@e89d40939c28e39f97cf32126055eeae86ba74ec # v6.3.0
+        name: Configure bot credentials
+        if: ${{ inputs.enable-tag-signing == 'true' }}
+        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@6c7952706aa7afa9141262485767d9270ef5b00b # master
         # This is using the GPG signature of bot-go-openapi.
         #
-        # CI_BOT_GPG_PRIVATE_KEY: the bot gpg key, armored
-        # CI_BOT_GPG_PASSPHRASE: the bot gpg passphrase
-        # CI_BOT_SIGNING_KEY: the fingerprint of the subkey used (space removed)
+        # For go-openapi repos (using secrets: inherit):
+        #   Falls back to: CI_BOT_GPG_PRIVATE_KEY, CI_BOT_GPG_PASSPHRASE, CI_BOT_SIGNING_KEY
+        #
+        # For other orgs: explicitly pass secrets with your custom names
         # NOTE(fredbi): extracted w/ gpg -K --homedir gnupg --keyid-format LONG --with-keygrip --fingerprint --with-subkey-fingerprint
         with:
-          gpg_private_key: ${{ secrets.CI_BOT_GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.CI_BOT_GPG_PASSPHRASE }}
-          fingerprint: ${{ secrets.CI_BOT_SIGNING_KEY }}
-          git_user_signingkey: true
-          git_commit_gpgsign: true
-          git_tag_gpgsign: true
+          enable-gpg-signing: 'true'
+          gpg-private-key: ${{ secrets.gpg-private-key || secrets.CI_BOT_GPG_PRIVATE_KEY }}
+          gpg-passphrase: ${{ secrets.gpg-passphrase || secrets.CI_BOT_GPG_PASSPHRASE }}
+          gpg-fingerprint: ${{ secrets.gpg-fingerprint || secrets.CI_BOT_SIGNING_KEY }}
+          enable-tag-signing: 'true'
+          enable-commit-signing: 'false'
       -
         name: Create and sign tag
         env:
@@ -125,8 +160,15 @@ jobs:
           fi
           echo "::notice title=tag-message:${MESSAGE}"
 
-          git tag -s -m "${MESSAGE}" "${NEXT_TAG}"
-          git tag -v "${NEXT_TAG}"
+          SIGNED=""
+          if [[ '${{ inputs.enable-tag-signing }}' == 'true' ]] ; then
+             SIGNED="-s"
+          fi
+
+          git tag "${SIGNED}" -m "${MESSAGE}" "${NEXT_TAG}"
+          if [[ -n "${SIGNED}" ]] ; then
+            git tag -v "${NEXT_TAG}"
+          fi
           git push origin "${NEXT_TAG}"
 
   gh-release:
