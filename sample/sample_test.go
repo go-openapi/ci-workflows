@@ -17,3 +17,15 @@ func TestSample(t *testing.T) {
 	*/
 	require.Equal(t, 1, Sample())
 }
+
+func FuzzSample(f *testing.F) {
+	f.Add([]byte(nil))
+	f.Add([]byte{})
+	f.Add([]byte{'x'})
+
+	f.Fuzz(func(t *testing.T, input []byte) {
+		require.NotPanics(t, func() {
+			_ = fuzzable(input)
+		})
+	})
+}

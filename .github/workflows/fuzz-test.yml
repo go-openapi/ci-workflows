@@ -41,7 +41,10 @@ jobs:
             jq  '.|select(.Action == "output")|select( (.Output|test("^(ok)|(\\?)"))|not )|{package: .Package, test: (.Output|gsub("\n";""))}'|\
             jq --slurp \
           )
-          echo "matrix=${fuzz_test}" >> "${GITHUB_OUTPUT}"
+          export fuzz_tests
+          echo "matrix<<EOF" >> "${GITHUB_OUTPUT}"
+          printenv fuzz_tests >> "${GITHUB_OUTPUT}"
+          echo "EOF" >> "${GITHUB_OUTPUT}"
           echo "::notice title=Fuzz tests found:${fuzz_tests}"
 
   fuzz-test:
