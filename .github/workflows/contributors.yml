@@ -81,5 +81,6 @@ jobs:
         name: Auto-approve PR
         run: gh pr review --approve "$PR_URL"
       -
+        # TODO: should wait for all workflows to complete before merging
         name: Auto-merge PR
         run: gh pr merge --auto --rebase "$PR_URL"

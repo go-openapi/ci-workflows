@@ -45,14 +45,14 @@ on:
 
 jobs:
   test:
-    uses: go-openapi/ci-workflow/.github/workflows/go-test.yml@master
+    uses: go-openapi/ci-workflows/.github/workflows/go-test.yml@master
     secrets: inherit
 ```
 
 It is recommended to pin the git ref `master` with a commit sha, and let dependabot keep you up to date. Like so:
 
 ```yaml
-    uses: go-openapi/ci-workflow/.github/workflows/go-test.yml@b28a8b978a5ee5b7f4241ffafd6cc6163edb5dfd # v0.1.0
+    uses: go-openapi/ci-workflows/.github/workflows/go-test.yml@b28a8b978a5ee5b7f4241ffafd6cc6163edb5dfd # v0.1.0
 ```
 
 ### Permissions
