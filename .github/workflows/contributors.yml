@@ -88,7 +88,7 @@ jobs:
         uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@09fdf6112081c9d6bea91b551b771a1b6bcf8d98 # v1.1.0
         with:
           pr-url: ${{ env.PR_URL }}
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       -
         name: Auto-merge PR
         run: gh pr merge --auto --rebase "$PR_URL"
