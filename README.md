@@ -101,11 +101,15 @@ jobs:
 
 ### Test automation
 
-* go-test.yml: go unit tests **TODO** support for mono-repos
+* go-test.yml: go unit tests
   * includes:
     * fuzz-test.yml: orchestrates fuzz testing with a cached corpus
     * collect-coverage.yml: (common) collect & publish test coverage (to codecov)
     * collect-reports.yml: (common) collect & publish test reports (to codecov and github)
+
+* go-test-monorepo.yml: go unit tests, with support for go mono-repos (same features)
+
+>NOTE: for mono-repos, the workflow works best with go1.25 and go.work declaring all your modules and committed to git.
 
 ### Security 
 
@@ -117,6 +121,11 @@ jobs:
 * bump-release.yml: manually triggered workflow to cut a release
 * tag-release.yml: cut a release on push tag
 * release.yml: (common) release & release notes build
+
+>NOTE: mono-repos are not supported yet.
+
+Release notes are produced using `git-cliff`. The configuration may be set using a `.cliff.toml` file.
+The default configuration is the `.cliff.toml` in this repo (uses remote config).
 
 ### Documentation quality
 
