@@ -83,7 +83,7 @@ jobs:
           mv contributors.md CONTRIBUTORS.md
       -
         name: Configure bot credentials
-        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@6c7952706aa7afa9141262485767d9270ef5b00b # master
+        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@6c7952706aa7afa9141262485767d9270ef5b00b # v1.3.0
         id: bot-credentials
         # For go-openapi repos (using secrets: inherit):
         #   Falls back to: CI_BOT_APP_ID, CI_BOT_APP_PRIVATE_KEY, CI_BOT_GPG_PRIVATE_KEY, etc.
@@ -118,15 +118,20 @@ jobs:
 
   auto-merge:
     # description: |
-    #   Validates and merge the pull request triggered above.
+    #   Approves the PR, waits for all jobs (including non-required ones), and enables auto-merge.
+    #
+    #   This workflow completes the full auto-merge flow for bot-created PRs:
+    #   1. Approve the PR (bot can't approve its own PR)
+    #   2. Wait for all workflow runs to complete (prevents branch deletion during non-required jobs)
+    #   3. Enable auto-merge if not already enabled (avoids race condition with auto-merge.yml)
     needs: [update-contributors]
     permissions:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
     env:
-      PR_URL: ${{needs.update-contributors.outputs.pull-request-url}}
-      GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      PR_URL: ${{ needs.update-contributors.outputs.pull-request-url }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       -
         name: Checkout repository
@@ -134,14 +139,34 @@ jobs:
       -
         name: Auto-approve PR
         run: gh pr review --approve "$PR_URL"
-      # The approval event normally kicks regular workflows, in particular the auto-merge workflow.
-      # So there is no need to merge here. Explicit merging was initially added because this
-      #-
-      #  name: Wait for all workflow runs to complete
-      #  uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@55bd46a7224dc61a7b8e64df6d3755b1cf986fba # v1.2.0
-      #  with:
-      #    pr-url: ${{ env.PR_URL }}
-      #    github-token: ${{ secrets.GITHUB_TOKEN }}
-      #-
-      #  name: Auto-merge PR
-      #  run: gh pr merge --auto --rebase "$PR_URL"
+      -
+        name: Wait for all workflow runs to complete
+        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@6c7952706aa7afa9141262485767d9270ef5b00b # v1.3.0
+        with:
+          pr-url: ${{ env.PR_URL }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      -
+        name: Enable auto-merge
+        run: |
+          # Attempt to enable auto-merge, handling race condition gracefully
+          set +e  # Don't exit on error
+          OUTPUT=$(gh pr merge --auto --rebase "$PR_URL" 2>&1)
+          EXIT_CODE=$?
+          set -e  # Re-enable exit on error
+
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "::notice title=auto-merge::Auto-merge enabled successfully"
+            exit 0
+          fi
+
+          # Check if error is due to race condition (merge already in progress)
+          # GitHub GraphQL API returns: "GraphQL: Merge already in progress (mergePullRequest)"
+          if echo "$OUTPUT" | grep -q "Merge already in progress"; then
+            echo "::warning title=auto-merge::Auto-merge already handled by another workflow (race condition)"
+            exit 0
+          fi
+
+          # Unexpected error - fail the workflow
+          echo "::error title=auto-merge::Failed to enable auto-merge"
+          echo "$OUTPUT"
+          exit $EXIT_CODE

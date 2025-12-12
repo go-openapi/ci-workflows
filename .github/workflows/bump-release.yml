@@ -101,7 +101,7 @@ jobs:
           fetch-depth: 0
       -
         name: install svu
-        uses: go-openapi/gh-actions/install/svu@55bd46a7224dc61a7b8e64df6d3755b1cf986fba # v1.2.0
+        uses: go-openapi/gh-actions/install/svu@6c7952706aa7afa9141262485767d9270ef5b00b # v1.3.0
       -
         name: Bump release
         id: bump-release
@@ -129,7 +129,7 @@ jobs:
       -
         name: Configure bot credentials
         if: ${{ inputs.enable-tag-signing == 'true' }}
-        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@6c7952706aa7afa9141262485767d9270ef5b00b # master
+        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@6c7952706aa7afa9141262485767d9270ef5b00b # v1.3.0
         # This is using the GPG signature of bot-go-openapi.
         #
         # For go-openapi repos (using secrets: inherit):
@@ -181,7 +181,7 @@ jobs:
       contents: write
     uses: ./.github/workflows/release.yml
     with:
-      tag: ${{ needs.tag-release.outputs.next-tag}}
+      tag: ${{ needs.tag-release.outputs.next-tag }}
       cliff-config: ${{ inputs.cliff-config }}
       cliff-config-url: ${{ inputs.cliff-config-url }}
     secrets: inherit
