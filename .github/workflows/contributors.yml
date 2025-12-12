@@ -83,12 +83,14 @@ jobs:
       -
         name: Auto-approve PR
         run: gh pr review --approve "$PR_URL"
-      -
-        name: Wait for all workflow runs to complete
-        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@55bd46a7224dc61a7b8e64df6d3755b1cf986fba # v1.1.0
-        with:
-          pr-url: ${{ env.PR_URL }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      -
-        name: Auto-merge PR
-        run: gh pr merge --auto --rebase "$PR_URL"
+      # The approval event normally kicks regular workflows, in particular the auto-merge workflow.
+      # So there is no need to merge here. Explicit merging was initially added because this
+      #-
+      #  name: Wait for all workflow runs to complete
+      #  uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@55bd46a7224dc61a7b8e64df6d3755b1cf986fba # v1.2.0
+      #  with:
+      #    pr-url: ${{ env.PR_URL }}
+      #    github-token: ${{ secrets.GITHUB_TOKEN }}
+      #-
+      #  name: Auto-merge PR
+      #  run: gh pr merge --auto --rebase "$PR_URL"
