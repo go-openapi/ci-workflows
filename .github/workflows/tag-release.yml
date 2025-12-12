@@ -14,6 +14,16 @@ on:
       tag:
         type: string
         required: true
+      cliff-config:
+        type: string
+        required: false
+        default: '.cliff.toml'
+        description: 'Path to the git-cliff config file in the caller repository'
+      cliff-config-url:
+        type: string
+        required: false
+        default: 'https://raw.githubusercontent.com/go-openapi/ci-workflows/refs/heads/master/.cliff.toml'
+        description: 'URL to the remote git-cliff config file (used if local config does not exist)'
 
 jobs:
   gh-release:
@@ -26,4 +36,6 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ github.ref_name }}
+      cliff-config: ${{ inputs.cliff-config }}
+      cliff-config-url: ${{ inputs.cliff-config-url }}
     secrets: inherit

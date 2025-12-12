@@ -14,6 +14,16 @@ on:
       tag:
         type: string
         required: true
+      cliff-config:
+        type: string
+        required: false
+        default: '.cliff.toml'
+        description: 'Path to the git-cliff config file in the caller repository'
+      cliff-config-url:
+        type: string
+        required: false
+        default: 'https://raw.githubusercontent.com/go-openapi/ci-workflows/refs/heads/master/.cliff.toml'
+        description: 'URL to the remote git-cliff config file (used if local config does not exist)'
 
 jobs:
   gh-release:
@@ -49,22 +59,49 @@ jobs:
           echo "Message in git tag ${{ inputs.tag }}"
           echo "$MESSAGE"
       -
-        name: Generate release notes
+        name: Check for local cliff config
+        id: check-config
+        run: |
+          if [ -f "${{ inputs.cliff-config }}" ]; then
+            echo "exists=true" >> "${GITHUB_OUTPUT}"
+            echo "::notice title=release::Local config file '${{ inputs.cliff-config }}' found"
+          else
+            echo "exists=false" >> "${GITHUB_OUTPUT}"
+            echo "::notice title=release::Local config file '${{ inputs.cliff-config }}' not found, will use remote config"
+          fi
+      -
+        name: Generate release notes (local config)
         # this uses git-cliff to generate a release note from the commit history
-        id: notes
+        if: ${{ steps.check-config.outputs.exists == 'true' }}
+        id: notes-local
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPO: ${{ github.repository }}
         uses: orhun/git-cliff-action@d77b37db2e3f7398432d34b72a12aa3e2ba87e51 # v4.6.0
         with:
-          config: '.cliff.toml'
+          config: ${{ inputs.cliff-config }}
           args: >-
+            --current
+            --with-tag-message '${{ steps.get-message.outputs.message }}'
+      -
+        name: Generate release notes (remote config)
+        # this uses git-cliff action with remote config URL
+        if: ${{ steps.check-config.outputs.exists == 'false' }}
+        id: notes-remote
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPO: ${{ github.repository }}
+        uses: orhun/git-cliff-action@d77b37db2e3f7398432d34b72a12aa3e2ba87e51 # v4.6.0
+        with:
+          config: ''
+          args: >-
+            --config-url '${{ inputs.cliff-config-url }}'
             --current
             --with-tag-message '${{ steps.get-message.outputs.message }}'
       -
         name: Create github release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
-          body: ${{ steps.notes.outputs.content }}
+          body: ${{ steps.check-config.outputs.exists == 'true' && steps.notes-local.outputs.content || steps.notes-remote.outputs.content }}
           tag_name: ${{ inputs.tag }}
           generate_release_notes: false # skip auto-generated release notes from github API

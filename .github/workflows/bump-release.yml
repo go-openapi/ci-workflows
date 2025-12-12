@@ -42,6 +42,16 @@ on:
           (use "|" to replace end of line).
         required: false
         type: string
+      cliff-config:
+        type: string
+        required: false
+        default: '.cliff.toml'
+        description: 'Path to the git-cliff config file in the caller repository'
+      cliff-config-url:
+        type: string
+        required: false
+        default: 'https://raw.githubusercontent.com/go-openapi/ci-workflows/refs/heads/master/.cliff.toml'
+        description: 'URL to the remote git-cliff config file (used if local config does not exist)'
 
 jobs:
   tag-release:
@@ -130,4 +140,6 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.tag-release.outputs.next-tag}}
+      cliff-config: ${{ inputs.cliff-config }}
+      cliff-config-url: ${{ inputs.cliff-config-url }}
     secrets: inherit
