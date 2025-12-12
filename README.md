@@ -25,6 +25,12 @@ Development is active. We are regularly adding more shared workflows to standard
 > NOTE: at this moment, it is difficult to share the configurations for dependabot and golangci-lint,
 > so these are not shared yet.
 
+## Example
+
+`go-test.yml`
+
+![go-test workflow](./docs/images/go-test.png)
+
 ## Basic usage
 
 You reuse a workflow like so:
@@ -142,6 +148,7 @@ This content ships under the [SPDX-License-Identifier: Apache-2.0](./LICENSE).
 * [Contributing guidelines](.github/CONTRIBUTING.md)
 * [Maintainers documentation](docs/MAINTAINERS.md)
 * [Code style](docs/STYLE.md)
+* [Roadmap](docs/ROADMAP.md)
 
 ## Cutting a new release
 
@@ -151,44 +158,6 @@ Maintainers can cut a new release by either:
 * or pushing a semver tag
   * signed tags are preferred
   * The tag message is prepended to release notes
-
-## Contemplated enhancements
-
-Most urgent:
-
-* [ ] mono-repo test
-* [ ] mono-repo release
-
-In no particular order:
-
-* [x] ui: enrich github actions UI with a job summary
-* [x] introduce config file specific checkout (markdownlint, spellcheck)
-* [x] security: separate PR / issue comments as a trusted bot workflow, acting on request artifacts
-* [x] version common workflows, so we can limit the impact of a change
-* [ ] build: verify that go.sum cache for tests works (should be enabled)
-* [ ] share mono repo workflows (see github.com/go-openapi/swag/.github/workflows)
-* [ ] lint: manage somehow to share golangci config (with local merge)
-* [ ] dependencies: manage somehow to share / replicate dependabot config
-* [ ] lint: golangci-lint: check valid PR comments etc
-* [ ] lint: use non-blocking, scheduled, proactive full linting to check for
-      the impact of new linters, new go versions etc
-* [ ] doc: (possibility) take over hugo & doc gen part from go-swagger
-* [ ] (possibility) take over release part from go-swagger
-* [ ] doc: produce hugo github page with all latest tagged versions
-      (incl. mono repo)
-* [ ] add bot to filter PRs, issues
-* [ ] check with github API that all repo settings (branch protection rules, etc)
-      are identical
-* [ ] comment PRs and issues
-* [ ] doc: checkout vale style-check guide (vale-action exists)
-* [x] ~doc: experiment LanguageTool for grammar checks ( -> a github action / docker image exists)~
-* [ ] doc: experiment LLM from github model, using embeddings ( -> 
-* [ ] issues: experiment LLM from github model, using embeddings ( -> show related issues)
-* [ ] github pages w/ hugo (like go-swagger, experiment another theme and json data)
-
-To be reworked:
-* [ ] doc: add markdown linting for docs
-* [ ] doc: add spellcheck for docs (and code?)
 
 <!-- Badges: status  -->
 [test-badge]: https://github.com/go-openapi/ci-workflows/actions/workflows/local-go-test.yml/badge.svg

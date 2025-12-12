@@ -1,4 +1,4 @@
-name: go test
+name: go test [Test only]
 
 permissions:
   pull-requests: read

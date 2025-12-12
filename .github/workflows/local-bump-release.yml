@@ -1,4 +1,4 @@
-name: Bump Release
+name: Bump Release [Test only]
 
 permissions:
   contents: read

@@ -1,4 +1,4 @@
-name: Dependabot auto-merge
+name: Dependabot auto-merge [Test only]
 
 permissions:
   contents: read

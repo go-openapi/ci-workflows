@@ -148,10 +148,10 @@ Reference documentation (released):
 
 A few things remain ahead to ease a bit a maintainer's job:
 
-* reuse CI workflows (e.g. in `github.com/go-openapi/workflows`)
-* reusable actions with custom tools pinned  (e.g. in `github.com/go-openapi/gh-actions`)
+* [x] reuse CI workflows (e.g. in `github.com/go-openapi/workflows`)
+* [x] reusable actions with custom tools pinned  (e.g. in `github.com/go-openapi/gh-actions`)
+* [x] auto-merge for CONTRIBUTORS.md (requires a github app to produce tokens)
 * open-source license checks
-* auto-merge for CONTRIBUTORS.md (requires a github app to produce tokens)
-* more automated code renovation / relinting work (possibly built with CLAUDE)
+* more automated code renovation / relinting work (possibly built with CLAUDE) (in the works)
 * organization-level documentation web site
 * ...
