@@ -36,8 +36,8 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}
     env:
-      PR_URL: ${{github.event.pull_request.html_url}}
-      GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       -
         name: Dependabot metadata
@@ -70,8 +70,8 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ inputs.enable-organization-bot == 'true' && github.event.pull_request.user.login == inputs.organization-bot }}
     env:
-      PR_URL: ${{github.event.pull_request.html_url}}
-      GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      PR_URL: ${{ github.event.pull_request.html_url }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       -
         name: Checkout repository
@@ -81,7 +81,7 @@ jobs:
         run: gh pr review --approve "$PR_URL"
       -
         name: Wait for all workflow runs to complete
-        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@55bd46a7224dc61a7b8e64df6d3755b1cf986fba # v1.2.0
+        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@6c7952706aa7afa9141262485767d9270ef5b00b # v1.3.0
         with:
           pr-url: ${{ env.PR_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
