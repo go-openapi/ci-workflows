@@ -57,17 +57,25 @@ if: inputs.enable-signing == 'true'
 
 ### GitHub Workflow Commands
 
-Use workflow commands for user-visible messages:
+Use workflow commands for user-visible messages with **double colon separator**:
 
-```yaml
-# ✅ CORRECT - Shows as annotation in GitHub UI
+```bash
+# ✅ CORRECT - Double colon (::) separator after title
 echo "::notice title=build::Build completed successfully"
 echo "::warning title=race-condition::Merge already in progress"
 echo "::error title=deployment::Failed to deploy"
 
-# ❌ WRONG - Just logs to console
+# ❌ WRONG - Single colon separator
+echo "::notice title=build:Build completed"  # Missing second ':'
+echo "::warning title=x:message"             # Won't display correctly
+
+# ❌ WRONG - Just logs to console (no annotation)
 echo "Build completed"
 ```
+
+**Syntax pattern:** `::LEVEL title=TITLE::MESSAGE`
+- `LEVEL`: notice, warning, or error
+- Double `::` separator is required between title and message
 
 ## Security Best Practices
 
@@ -342,14 +350,15 @@ on:
   workflow_call:
     inputs:
       # Use inputs for configuration
+      # IMPORTANT: Use type: string for boolean-like values (never type: boolean)
       enable-signing:
-        type: boolean
+        type: string          # ✅ Use string, not boolean
         required: false
-        default: true
+        default: 'true'       # String value
       bump-major:
-        type: boolean
+        type: string          # ✅ Use string, not boolean
         required: false
-        default: false
+        default: 'false'      # String value
 
     secrets:
       # Use secrets for sensitive data
@@ -427,33 +436,64 @@ Brief description of what the action does.
 
 ## Common Gotchas
 
-1. **Boolean input comparisons**: GitHub Actions inputs are strongly typed, with no "JS-like" truthy logic
+1. **Workflow command syntax**: GitHub Actions workflow commands require **double colon separator**
+   ```bash
+   # ✅ CORRECT - Double :: separator
+   echo "::notice title=success::All tests passed"
+   echo "::warning title=deprecated::This feature is deprecated"
+   echo "::error title=failed::Build failed"
+
+   # ❌ WRONG - Single : separator (won't display correctly)
+   echo "::notice title=success:All tests passed"
+   echo "::warning title=x:message"
+
+   # Pattern: ::LEVEL title=TITLE::MESSAGE
+   # The double :: between title and message is mandatory
+   ```
+
+2. **Boolean inputs are forbidden**: NEVER use `type: boolean` for workflow inputs due to unpredictable type coercion
    ```yaml
-   # ❌ WRONG - Boolean true is NOT equal to string 'true'
+   # ❌ FORBIDDEN - Boolean inputs have type coercion issues
    on:
      workflow_call:
        inputs:
          enable-feature:
-           type: boolean
+           type: boolean        # ❌ NEVER USE THIS
            default: true
+
+   # The pattern `x == 'true' || x == true` seems safe but fails when:
+   # - x is not a boolean: `x == true` evaluates to true if x != null
+   # - Type coercion is unpredictable and error-prone
+
+   # ✅ CORRECT - Always use string type for boolean-like inputs
+   on:
+     workflow_call:
+       inputs:
+         enable-feature:
+           type: string         # ✅ Use string instead
+           default: 'true'      # String value
 
    jobs:
      my-job:
-       if: ${{ inputs.enable-feature == 'true' }}  # FALSE when input is boolean true!
+       # Simple, reliable comparison
+       if: ${{ inputs.enable-feature == 'true' }}
 
-   # ✅ CORRECT - Handle both boolean and string values
-   if: ${{ inputs.enable-feature == 'true' || inputs.enable-feature == true }}
-
-   # Note: In bash, this works fine because bash converts to string:
-   if [[ '${{ inputs.enable-feature }}' == 'true' ]]; then  # Works in bash
+   # ✅ In bash, this works perfectly (inputs are always strings in bash):
+   if [[ '${{ inputs.enable-feature }}' == 'true' ]]; then
+     echo "Feature enabled"
+   fi
    ```
 
-2. **Expression evaluation in descriptions**: Don't use `${{ }}` in action.yml description fields
-3. **Race conditions**: Always use optimistic execution + error handling, never check-then-act
-4. **Secret exposure**: Never use `secrets[inputs.name]` - always use explicit secret parameters
-5. **Branch deletion**: Use `wait-pending-jobs` before merging to prevent failures in non-required jobs
-6. **Idempotency**: `gh pr merge --auto` is NOT idempotent - handle "Merge already in progress" error
-7. **TOCTOU vulnerabilities**: State can change between check and action - handle at runtime
+   **Rule**: Use `type: string` with values `'true'` or `'false'` for all boolean-like workflow inputs.
+
+   **Note**: Step outputs and bash variables are always strings, so `x == 'true'` works fine for those.
+
+3. **Expression evaluation in descriptions**: Don't use `${{ }}` in action.yml description fields
+4. **Race conditions**: Always use optimistic execution + error handling, never check-then-act
+5. **Secret exposure**: Never use `secrets[inputs.name]` - always use explicit secret parameters
+6. **Branch deletion**: Use `wait-pending-jobs` before merging to prevent failures in non-required jobs
+7. **Idempotency**: `gh pr merge --auto` is NOT idempotent - handle "Merge already in progress" error
+8. **TOCTOU vulnerabilities**: State can change between check and action - handle at runtime
 
 ## Testing Workflows
 
