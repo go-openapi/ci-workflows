@@ -128,7 +128,7 @@ jobs:
           echo "::notice title=next-tag:${NEXT_TAG}"
       -
         name: Configure bot credentials
-        if: ${{ inputs.enable-tag-signing == 'true' }}
+        if: ${{ inputs.enable-tag-signing == 'true' || inputs.enable-tag-signing == true }}
         uses: go-openapi/gh-actions/ci-jobs/bot-credentials@6c7952706aa7afa9141262485767d9270ef5b00b # v1.3.0
         # This is using the GPG signature of bot-go-openapi.
         #
