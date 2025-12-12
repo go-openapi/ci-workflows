@@ -1,4 +1,4 @@
-name: Vulnerability scans
+name: Vulnerability scans [Test only]
 
 on:
   branch_protection_rule:
