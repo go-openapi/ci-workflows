@@ -68,7 +68,7 @@ jobs:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
-    if: ${{ inputs.enable-organization-bot == 'true' && github.event.pull_request.user.login == inputs.organization-bot }}
+    if: ${{ (inputs.enable-organization-bot == 'true' || inputs.enable-organization-bot == true) && github.event.pull_request.user.login == inputs.organization-bot }}
     env:
       PR_URL: ${{ github.event.pull_request.html_url }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

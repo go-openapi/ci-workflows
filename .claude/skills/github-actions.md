@@ -427,12 +427,33 @@ Brief description of what the action does.
 
 ## Common Gotchas
 
-1. **Expression evaluation in descriptions**: Don't use `${{ }}` in action.yml description fields
-2. **Race conditions**: Always use optimistic execution + error handling, never check-then-act
-3. **Secret exposure**: Never use `secrets[inputs.name]` - always use explicit secret parameters
-4. **Branch deletion**: Use `wait-pending-jobs` before merging to prevent failures in non-required jobs
-5. **Idempotency**: `gh pr merge --auto` is NOT idempotent - handle "Merge already in progress" error
-6. **TOCTOU vulnerabilities**: State can change between check and action - handle at runtime
+1. **Boolean input comparisons**: GitHub Actions inputs are strongly typed, with no "JS-like" truthy logic
+   ```yaml
+   # ❌ WRONG - Boolean true is NOT equal to string 'true'
+   on:
+     workflow_call:
+       inputs:
+         enable-feature:
+           type: boolean
+           default: true
+
+   jobs:
+     my-job:
+       if: ${{ inputs.enable-feature == 'true' }}  # FALSE when input is boolean true!
+
+   # ✅ CORRECT - Handle both boolean and string values
+   if: ${{ inputs.enable-feature == 'true' || inputs.enable-feature == true }}
+
+   # Note: In bash, this works fine because bash converts to string:
+   if [[ '${{ inputs.enable-feature }}' == 'true' ]]; then  # Works in bash
+   ```
+
+2. **Expression evaluation in descriptions**: Don't use `${{ }}` in action.yml description fields
+3. **Race conditions**: Always use optimistic execution + error handling, never check-then-act
+4. **Secret exposure**: Never use `secrets[inputs.name]` - always use explicit secret parameters
+5. **Branch deletion**: Use `wait-pending-jobs` before merging to prevent failures in non-required jobs
+6. **Idempotency**: `gh pr merge --auto` is NOT idempotent - handle "Merge already in progress" error
+7. **TOCTOU vulnerabilities**: State can change between check and action - handle at runtime
 
 ## Testing Workflows
 
