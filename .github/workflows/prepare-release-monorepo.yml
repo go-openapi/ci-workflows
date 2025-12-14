@@ -1,11 +1,36 @@
-name: Contributors
+name: Prepare Release [monorepo]
 
 permissions:
   contents: read
 
+# description: |
+#   Prepares a release for mono-repo projects by updating go.mod files.
+#
+#   This workflow:
+#   1. Updates go.mod files in all modules to use the new version
+#   2. Creates a bot PR with the changes
+#   3. (Future) Waits for the PR to be merged before tagging
+#
+#   The PR will be auto-merged if all checks pass.
+
+defaults:
+  run:
+    shell: bash
+
 on:
   workflow_call:
+    outputs:
+      pull-request-url:
+        description: "URL of the created pull request"
+        value: ${{ jobs.prepare-modules.outputs.pull-request-url }}
     inputs:
+      target-tag:
+        description: |
+          Target tag for the release (e.g., v0.24.0).
+
+          This tag will be used to update inter-module dependencies, but not pushed to the repo yet.
+        type: string
+        required: true
       enable-commit-signing:
         description: |
           Enable GPG commit signing by a bot user.
@@ -57,30 +82,82 @@ on:
         required: false
 
 jobs:
-  update-contributors:
-    name: all-time contributors
-    permissions:
-      pull-requests: write
-      contents: write
+  prepare-modules:
+    name: Prepare module updates
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     outputs:
       pull-request-url: ${{ steps.create-pull-request.outputs.pull-request-url }}
     steps:
       -
         name: Checkout repository
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
       -
-        name: Identify all-time contributors to this repository
-        uses: github/contributors@0d5adc3833e89ee1f4145744f5d69313cf5ea238 # v1.7.8
+        name: Setup Go
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        with:
+          go-version: stable
+          check-latest: true
+          cache: true
+          cache-dependency-path: '**/go.sum'
+      -
+        name: Detect go mono-repo
+        id: detect-monorepo
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@0ec18ca1ddc1e2257097ae8d57952733109d80a1 # v1.4.0
+      -
+        name: Update go.mod files for new release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPOSITORY:  ${{ github.repository }}
-          LINK_TO_PROFILE: 'True'
-      -
-        name: Rename contributor file
+          TARGET_TAG: ${{ inputs.target-tag }}
         run: |
-          rm -rf contributors.json
-          mv contributors.md CONTRIBUTORS.md
+          # Update go.mod files in all modules to reference the new version
+          root="$(git rev-parse --show-toplevel)"
+          cd "${root}"
+
+          # Infer the root module path (e.g., "github.com/go-openapi/swag")
+          root_module="${{ steps.detect-monorepo.outputs.root-module }}"
+          echo "::notice title=prepare-release::Updating modules to ${TARGET_TAG} for ${root_module}"
+
+          # Find all go.mod directories and process them.
+          #
+          # Since all internal dependencies are already resolved using "replace" directives,
+          # what we are adding here is only visible to external users of the package, not locally.
+          #
+          # Therefore, there is no need to care about the order in which we apply this change.
+          while read -r dir ; do
+            echo "::notice title=processing-module::Processing module in ${dir}"
+            pushd "${dir}" > /dev/null
+
+            # List dependencies and update those matching the root module or sub-modules
+            # This matches both the root module and any sub-modules under the same path
+            go list -deps -test \
+              -f '{{ if .DepOnly }}{{ with .Module }}{{ .Path }}{{ end }}{{ end }}' | \
+            sort -u | \
+            grep "^${root_module}" | \
+            while read -r module ; do
+              echo "::notice title=updating-dependency::Updating ${module} to ${TARGET_TAG}"
+              go mod edit -require "${module}@${TARGET_TAG}"
+            done
+
+            # Tidy the go.mod file
+            echo "::notice title=tidy::Running go mod tidy in ${dir}"
+            go mod tidy
+
+            popd > /dev/null
+          done < <(echo ${{ steps.detect-monorepo.outputs.bash-paths }})
+
+          # Sync go.work if it exists
+          if [[ -f go.work ]] ; then
+            echo "::notice title=sync::Running go work sync"
+            go work sync
+          fi
+
+          # Show what changed
+          echo "::notice title=changes::Git status after updates"
+          git status --short
       -
         name: Configure bot credentials
         uses: go-openapi/gh-actions/ci-jobs/bot-credentials@0ec18ca1ddc1e2257097ae8d57952733109d80a1 # v1.4.0
@@ -100,19 +177,28 @@ jobs:
           enable-commit-signing: 'true'
           enable-tag-signing: 'false'
       -
-        name: Create a PR
+        name: Create pull request
         id: create-pull-request
         uses: peter-evans/create-pull-request@98357b18bf14b5342f975ff684046ec3b2a07725 # v8.0.0
+        env:
+          TARGET_TAG: ${{ inputs.target-tag }}
         with:
-          commit-message: "doc: updated contributors file"
-          branch: doc/contributors-bot
+          commit-message: "chore: prepare release ${{ inputs.target-tag }}"
+          branch: release/prepare-${{ inputs.target-tag }}
           delete-branch: true
-          title: "doc: updated contributors file"
+          title: "chore: prepare release ${{ inputs.target-tag }}"
+          body: |
+            This PR prepares the mono-repo for release `${{ inputs.target-tag }}`.
+
+            **Changes:**
+            - Updated inter-module dependencies to `${{ inputs.target-tag }}`
+            - Ran `go mod tidy` on all modules
+            - Synced `go.work` (if present)
+
+            This PR will be auto-merged once all checks pass.
           token: ${{ steps.bot-credentials.outputs.app-token }}
-          labels: "bot"
+          labels: "bot,release"
           draft: false
-          assignees: fredbi
-          reviewers: fredbi
           sign-commits: ${{ inputs.enable-commit-signing }}
           signoff: true # DCO
 
@@ -124,13 +210,16 @@ jobs:
     #   1. Approve the PR (bot can't approve its own PR)
     #   2. Wait for all workflow runs to complete (prevents branch deletion during non-required jobs)
     #   3. Enable auto-merge if not already enabled (avoids race condition with auto-merge.yml)
-    needs: [update-contributors]
+    #
+    #   Future enhancement: Wait for the PR to be merged before proceeding to tag the release.
+    #   Note: The merge may be completed by this workflow or by auto-merge.yml running in parallel.
+    needs: [prepare-modules]
     permissions:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
     env:
-      PR_URL: ${{ needs.update-contributors.outputs.pull-request-url }}
+      PR_URL: ${{ needs.prepare-modules.outputs.pull-request-url }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       -

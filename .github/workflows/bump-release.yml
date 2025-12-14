@@ -100,36 +100,17 @@ jobs:
         with:
           fetch-depth: 0
       -
-        name: install svu
-        uses: go-openapi/gh-actions/install/svu@eb161ed408645b24aaf6120cd5e4a893cf2c0af2 # v1.3.1
-      -
-        name: Bump release
+        name: Determine next tag
         id: bump-release
-        run: |
-          # determine next tag to push
-          NEXT_TAG=""
-          if   [[ '${{ inputs.bump-patch }}' == 'true' ]] ; then
-            NEXT_TAG=$(svu patch)
-          elif [[ '${{ inputs.bump-minor }}' == 'true' ]] ; then
-            NEXT_TAG=$(svu minor)
-          elif [[ '${{ inputs.bump-major }}' == 'true' ]] ; then
-            NEXT_TAG=$(svu major)
-          else
-            echo "::error::invalid options::One of bump-patch, bump-minor or bump-major must be true"
-            exit 1
-          fi
-
-          if [[ -z "${NEXT_TAG}" ]] ; then
-            echo "::error::something went wrong and no tag has been determined. Stopping here"
-            exit 1
-          fi
-
-          echo "next-tag=${NEXT_TAG}" >> "$GITHUB_OUTPUT"
-          echo "::notice title=next-tag::${NEXT_TAG}"
+        uses: go-openapi/gh-actions/ci-jobs/next-tag@0ec18ca1ddc1e2257097ae8d57952733109d80a1 # v1.4.0
+        with:
+          bump-patch: ${{ inputs.bump-patch }}
+          bump-minor: ${{ inputs.bump-minor }}
+          bump-major: ${{ inputs.bump-major }}
       -
         name: Configure bot credentials
         if: ${{ inputs.enable-tag-signing == 'true' }}
-        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@eb161ed408645b24aaf6120cd5e4a893cf2c0af2 # v1.3.1
+        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@0ec18ca1ddc1e2257097ae8d57952733109d80a1 # v1.4.0
         # This is using the GPG signature of bot-go-openapi.
         #
         # For go-openapi repos (using secrets: inherit):

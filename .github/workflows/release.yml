@@ -14,6 +14,11 @@ on:
       tag:
         type: string
         required: true
+      is-monorepo:
+        type: string
+        required: false
+        default: 'false'
+        description: 'Set to true for mono-repo projects to generate per-module release notes'
       cliff-config:
         type: string
         required: false
@@ -24,6 +29,16 @@ on:
         required: false
         default: 'https://raw.githubusercontent.com/go-openapi/ci-workflows/refs/heads/master/.cliff.toml'
         description: 'URL to the remote git-cliff config file (used if local config does not exist)'
+      monorepo-cliff-template:
+        type: string
+        required: false
+        default: '.cliff-monorepo.toml'
+        description: 'Path to the git-cliff template used to generate module-specific release notes'
+      monorepo-cliff-template-url:
+        type: string
+        required: false
+        default: https://raw.githubusercontent.com/go-openapi/ci-workflows/refs/heads/master/.cliff-monorepo.toml
+        description: 'URL to the remote git-cliff template used to generate module-specific release notes'
 
 jobs:
   gh-release:
@@ -37,6 +52,13 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 0
+      -
+        uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+        with:
+          go-version: stable
+          check-latest: true
+          cache: true
+          cache-dependency-path: '**/go.sum'
       -
         name: Extract tag message
         id: get-message
@@ -59,20 +81,211 @@ jobs:
           echo "Message in git tag ${{ inputs.tag }}"
           echo "$MESSAGE"
       -
+        name: Detect go mono-repo
+        if: ${{ inputs.is-monorepo == 'true' }}
+        id: detect-monorepo
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@0ec18ca1ddc1e2257097ae8d57952733109d80a1 # v1.4.0
+      -
+        name: Install git-cliff [monorepo]
+        if: ${{ inputs.is-monorepo == 'true' }}
+        uses: taiki-e/install-action@331a600f1b10a3fed8dc56f925012bede91ae51f # v2.44.25
+        with:
+          tool: git-cliff
+      -
         name: Check for local cliff config
         id: check-config
         run: |
-          if [ -f "${{ inputs.cliff-config }}" ]; then
+          if [[ -f '${{ inputs.cliff-config }}' ]]; then
             echo "exists=true" >> "${GITHUB_OUTPUT}"
             echo "::notice title=release::Local config file '${{ inputs.cliff-config }}' found"
           else
             echo "exists=false" >> "${GITHUB_OUTPUT}"
             echo "::notice title=release::Local config file '${{ inputs.cliff-config }}' not found, will use remote config"
           fi
+
+          if [[ '${{ inputs.is-monorepo }}' == "true" && -f '${{ inputs.monorepo-cliff-template }}' ]]; then
+            echo "monorepo-template-exists=true" >> "${GITHUB_OUTPUT}"
+            echo "::notice title=release::Local monorepo config file '${{ inputs.monorepo-cliff-template }}' found"
+          else
+            echo "monorepo-template-exists=false" >> "${GITHUB_OUTPUT}"
+            if [[ ${{ inputs.is-monorepo }} == "true" ]]; then
+              echo "::notice title=release::Local monorepo config file '${{ inputs.monorepo-cliff-template }}' not found, will use remote config"
+            else
+              echo "::notice title=release::Local monorepo config file not needed"
+            fi
+          fi
+      -
+        name: Fetch remote cliff-monorepo template [monorepo]
+        if: ${{ inputs.is-monorepo == 'true' && steps.check-config.outputs.monorepo-template-exists != 'true' }}
+        env:
+          MONOREPO_TEMPLATE_URL: ${{ inputs.monorepo-cliff-template-url }}
+        run: |
+          # Fetch the monorepo template from remote
+          LOCAL_TEMPLATE_LOCATION="${RUNNER_TEMP:-/tmp}/.cliff-monorepo.toml"
+
+          echo "::notice title=fetch-template::Fetching monorepo template from ${MONOREPO_TEMPLATE_URL}"
+          curl -fsSL "${MONOREPO_TEMPLATE_URL}" -o "${LOCAL_TEMPLATE_LOCATION}"
+
+          echo "::notice title=fetch-template::Monorepo template downloaded to ${LOCAL_TEMPLATE_LOCATION}"
+      -
+        name: Generate release notes [monorepo]
+        if: ${{ inputs.is-monorepo == 'true' }}
+        id: notes-monorepo
+        env:
+          TAG_MESSAGE: ${{ steps.get-message.outputs.message }}
+          CLIFF_CONFIG: ${{ inputs.cliff-config }}
+          CLIFF_CONFIG_URL: ${{ inputs.cliff-config-url }}
+          CONFIG_EXISTS: ${{ steps.check-config.outputs.exists }}
+          MONOREPO_TEMPLATE_EXISTS: ${{ steps.check-config.outputs.monorepo-template-exists }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ github.token }}
+          MODULE_RELATIVE_NAMES: ${{ steps.detect-monorepo.outputs.bash-relative-names }}
+          MODULE_PATHS: ${{ steps.detect-monorepo.outputs.bash-paths }}
+          ROOT_MODULE: ${{ steps.detect-monorepo.outputs.root-module }}
+        run: |
+          set -euo pipefail
+          LOCAL_TEMPLATE_LOCATION="${RUNNER_TEMP:-/tmp}/.cliff-monorepo.toml"
+
+          root_dir="$(git rev-parse --show-toplevel)"
+          cd "${root_dir}"
+
+          # Determine config path
+          if [[ "${CONFIG_EXISTS}" == "true" ]] ; then
+            cliff_config_flag="--config $(realpath "${CLIFF_CONFIG}")"
+          else
+            cliff_config_flag="--config-url ${CLIFF_CONFIG_URL}"
+          fi
+          
+          # Determine monorepo template path
+          if [[ "${MONOREPO_TEMPLATE_EXISTS}" == "true" ]] ; then
+            cliff_monorepo=$(realpath "${{ inputs.monorepo-cliff-template }}")
+          else
+            cliff_monorepo="${LOCAL_TEMPLATE_LOCATION}"
+          fi
+
+          # Load monorepo template body
+          body_monorepo_template=$(cat "${cliff_monorepo}")
+
+          # Semver pattern for tag filtering
+          semver_pattern="v\d+\.\d+\.\d+"
+
+          # Build module arrays
+          declare -a ALL_RELATIVE_MODULES
+          mapfile -d' ' -t ALL_RELATIVE_MODULES < <(printf "%s" "${MODULE_RELATIVE_NAMES}")
+
+          # Build absolute paths array
+          declare -a ALL_FOLDERS
+          mapfile -d' ' -t ALL_FOLDERS < <(printf "%s" "${MODULE_PATHS}")
+
+          # Function to find child modules for exclusion
+          function other_module_paths() {
+            local current_index="$1"
+            local current_module_path="$2"
+            declare -a result
+
+            for (( i=0; i<${#ALL_FOLDERS[@]}; i++ )); do
+              [[ $i -le $current_index ]] && continue
+
+              folder="${ALL_FOLDERS[$i]}"
+              [[ "${folder}" == "${current_module_path}" ]] && continue
+
+              # Check if folder is a child of current module
+              if [[ "${folder}" =~ ^"${current_module_path}" ]] ; then
+                result+=("--exclude-path ${folder}")
+              fi
+            done
+
+            echo "${result[@]}"
+          }
+
+          # Create temp directory for module notes
+          tmp_dir="${RUNNER_TEMP:-/tmp}/release-notes"
+          rm -rf "${tmp_dir}"
+          mkdir -p "${tmp_dir}"
+
+          # Generate module-specific notes (Part 2)
+          for (( i=0; i<${#ALL_RELATIVE_MODULES[@]}; i++ )); do
+            relative_module="${ALL_RELATIVE_MODULES[$i]}"
+            folder="${ALL_FOLDERS[$i]}"
+
+            # Build exclusion list for child modules
+            excluded=$(other_module_paths "${i}" "${folder}")
+
+            # Determine module name and tag pattern
+            if [[ "${relative_module}" == "{root}" ]] ; then
+              # Root module
+              module_name=$(basename "${ROOT_MODULE}")
+              tag_pattern="^${semver_pattern}$"
+            else
+              module_name="${relative_module}"
+              tag_pattern="^${relative_module}/${semver_pattern}$"
+            fi
+
+            echo "::notice title=module-notes::Generating notes for module: ${module_name}"
+
+            # Generate notes for this module
+            pushd "${folder}" >/dev/null
+
+            notes="${tmp_dir}/notes-$(echo "${module_name}" | tr '/' '-').md"
+
+            {
+              echo ""
+              echo "## ${module_name}"
+              echo ""
+              # module-specific notes have their markdown indented one level deeper
+
+              # shellcheck disable=SC2086 # we want optional flags to expand
+              git-cliff \
+                  ${cliff_config_flag} \
+                  --body "${body_monorepo_template}" \
+                  --tag-pattern "${tag_pattern}" \
+                  ${excluded} \
+                  --strip all \
+                  --current \
+                  --with-tag-message "${TAG_MESSAGE}" \
+                  | sed -E 's/^(#+) /\1# /g'
+
+              echo ""
+            } > "${notes}"
+
+            popd >/dev/null
+          done
+
+          # Generate full changelog (Part 1)
+          echo "::notice title=full-changelog::Generating full changelog with global sections"
+
+          tag_pattern="^${semver_pattern}$"
+
+          FULL_NOTES=$(git-cliff \
+              ${cliff_config_flag} \
+              --tag-pattern "${tag_pattern}" \
+              --current \
+              --with-tag-message "${TAG_MESSAGE}")
+
+          # Assemble final release notes (Part 1 + Part 2)
+          {
+            echo "${FULL_NOTES}"
+            echo ""
+            echo "# Module-specific release notes"
+            echo ""
+            cat "${tmp_dir}"/notes-*.md
+          } > "${tmp_dir}/final-notes.md"
+
+          # Save to output
+          {
+            echo "content<<EOF"
+            cat "${tmp_dir}/final-notes.md"
+            echo 'EOF'
+          } >> "${GITHUB_OUTPUT}"
+
+          # Cleanup
+          rm -rf "${tmp_dir}"
+
+          echo "::notice title=release-notes::Generated two-part release notes for mono-repo"
       -
         name: Generate release notes (local config)
         # this uses git-cliff to generate a release note from the commit history
-        if: ${{ steps.check-config.outputs.exists == 'true' }}
+        if: ${{ inputs.is-monorepo != 'true' && steps.check-config.outputs.exists == 'true' }}
         id: notes-local
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -86,7 +299,7 @@ jobs:
       -
         name: Generate release notes (remote config)
         # this uses git-cliff action with remote config URL
-        if: ${{ steps.check-config.outputs.exists == 'false' }}
+        if: ${{ inputs.is-monorepo != 'true' && steps.check-config.outputs.exists == 'false' }}
         id: notes-remote
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -102,6 +315,6 @@ jobs:
         name: Create github release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
-          body: ${{ steps.check-config.outputs.exists == 'true' && steps.notes-local.outputs.content || steps.notes-remote.outputs.content }}
+          body: ${{ inputs.is-monorepo == 'true' && steps.notes-monorepo.outputs.content || (steps.check-config.outputs.exists == 'true' && steps.notes-local.outputs.content || steps.notes-remote.outputs.content) }}
           tag_name: ${{ inputs.tag }}
           generate_release_notes: false # skip auto-generated release notes from github API
