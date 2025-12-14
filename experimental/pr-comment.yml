@@ -99,7 +99,7 @@ jobs:
         echo "proceed=true" >> "${GITHUB_OUTPUT}"
 
     - name: Download message artifact
-      if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
+      if: ${{ steps.check_pr.outputs.proceed == 'true' }}
       id: download
       uses: actions/download-artifact@v5
       with:
@@ -107,10 +107,10 @@ jobs:
         repository: "${{ env.TARGET }}"
         name: "${{ inputs.artifact_name }}"
         path: artifacts/
-        github-token: ${{secrets.GITHUB_TOKEN}}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Check message artifact size
-      if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
+      if: ${{ steps.check_pr.outputs.proceed == 'true' }}
       run: |
         MESSAGE_FILE="${{ steps.download.outputs.download-path }}/${{ inputs.artifact_name }}"
         SIZE=$(cat "${MESSAGE_FILE}"|wc -c)
@@ -124,7 +124,7 @@ jobs:
         fi
 
     - name: Find previous PR comment
-      if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
+      if: ${{ steps.check_pr.outputs.proceed == 'true' }}
       uses: peter-evans/find-comment@v3
       id: find_comment
       with:
@@ -135,7 +135,7 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Create or update PR comment
-      if: ${{ steps.check_pr.outputs.proceed == 'true'}} 
+      if: ${{ steps.check_pr.outputs.proceed == 'true' }}
       uses: peter-evans/create-or-update-comment@v4
       with:
         issue-number: ${{ inputs.pr_number }}
