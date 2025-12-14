@@ -45,7 +45,7 @@ jobs:
           echo "matrix<<EOF" >> "${GITHUB_OUTPUT}"
           printenv fuzz_tests >> "${GITHUB_OUTPUT}"
           echo "EOF" >> "${GITHUB_OUTPUT}"
-          echo "::notice title=Fuzz tests found:${fuzz_tests}"
+          echo "::notice title=Fuzz tests found::${fuzz_tests}"
 
   fuzz-test:
     name: fuzz test
@@ -155,4 +155,4 @@ jobs:
         name: Report fuzz corpus cache size
         run: |
           FINAL_SIZE=$(du -m "${CORPUS_DIR}"|cut -f1)
-          echo "::notice title=fuzz corpus size:${FINAL_SIZE}MB"
+          echo "::notice title=fuzz corpus size::${FINAL_SIZE}MB"

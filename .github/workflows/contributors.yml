@@ -12,8 +12,8 @@ on:
 
           When enabled, commits in the pull request will be signed with the bot's GPG key.
         required: false
-        type: boolean
-        default: true
+        type: string
+        default: 'true'
     secrets:
       github-app-id:
         description: |
