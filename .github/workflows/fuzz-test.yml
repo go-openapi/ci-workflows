@@ -75,7 +75,7 @@ jobs:
           echo "CORPUS_DIR=${GOCACHE}/fuzz" >> "${GITHUB_ENV}"
       -
         name: Retrieve fuzz corpus from cache
-        uses: actions/cache@a7833574556fa59680c1b7cb190c1735db73ebf0 # v5.0.0
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           key: ${{ runner.os }}-go-fuzz
           path:
@@ -144,7 +144,7 @@ jobs:
       -
         name: Upload failed corpus
         if: ${{ failure() }}
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         # TODO(fredbi): ideally, after uploading, we should fire a pull request to add
         # this corpus to testdata.
         with:
