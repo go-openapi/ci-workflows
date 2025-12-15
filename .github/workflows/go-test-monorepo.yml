@@ -45,7 +45,7 @@ jobs:
         name: golangci-lint [mono-repo]
         # golangci-action v9.1+ has an experimental built-in mono repo detection setup.
         if: ${{ steps.detect-monorepo.outputs.is_monorepo == 'true' }}
-        uses: golangci/golangci-lint-action@e7fa5ac41e1cf5b7d48e45e42232ce7ada589601 # v9.1.0
+        uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
         with:
           version: latest
           skip-cache: true
@@ -178,7 +178,7 @@ jobs:
           ./...
       -
         name: Upload coverage artifacts
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           # *.coverage.* pattern is automatically detected by codecov
           path: '**/*.coverage.*.out'
@@ -188,7 +188,7 @@ jobs:
         name: Upload test report artifacts
         # upload report even if tests fail. BTW, this is when they are valuable.
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           path: '**/unit.report.*.json'
           name: 'unit.report.${{ matrix.os }}-${{ matrix.go }}'
