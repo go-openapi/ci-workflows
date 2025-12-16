@@ -110,7 +110,7 @@ jobs:
           echo "::notice title=go minor version::${go_minor_version}"
       -
         name: Install gotestsum
-        uses: go-openapi/gh-actions/install/gotestsum@6c7952706aa7afa9141262485767d9270ef5b00b # v1.3.0
+        uses: go-openapi/gh-actions/install/gotestsum@eb161ed408645b24aaf6120cd5e4a893cf2c0af2 # v1.3.1
       -
         name: Run unit tests on all modules in this repo (go1.25+ with go.work)
         if: ${{ needs.lint.outputs.is_monorepo == 'true' && steps.detect-test-work.outputs.supported == 'true' }}

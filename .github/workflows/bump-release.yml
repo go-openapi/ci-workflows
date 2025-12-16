@@ -101,7 +101,7 @@ jobs:
           fetch-depth: 0
       -
         name: install svu
-        uses: go-openapi/gh-actions/install/svu@6c7952706aa7afa9141262485767d9270ef5b00b # v1.3.0
+        uses: go-openapi/gh-actions/install/svu@eb161ed408645b24aaf6120cd5e4a893cf2c0af2 # v1.3.1
       -
         name: Bump release
         id: bump-release
@@ -129,7 +129,7 @@ jobs:
       -
         name: Configure bot credentials
         if: ${{ inputs.enable-tag-signing == 'true' }}
-        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@6c7952706aa7afa9141262485767d9270ef5b00b # v1.3.0
+        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@eb161ed408645b24aaf6120cd5e4a893cf2c0af2 # v1.3.1
         # This is using the GPG signature of bot-go-openapi.
         #
         # For go-openapi repos (using secrets: inherit):
