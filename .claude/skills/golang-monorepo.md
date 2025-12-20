@@ -1163,59 +1163,57 @@ outputs:
 
 ### 3. git-cliff Installation Strategy
 
-**Current situation:** Explicitly downloading and installing pinned version in workflows:
+**Current situation:** Using two different dependencies for git-cliff:
 ```yaml
-- name: Install git-cliff
-  run: |
-    wget -q https://github.com/orhun/git-cliff/releases/download/v2.8.1/git-cliff-2.8.1-x86_64-unknown-linux-gnu.tar.gz
-    tar -xzf git-cliff-2.8.1-x86_64-unknown-linux-gnu.tar.gz
-    sudo mv git-cliff-2.8.1/git-cliff /usr/local/bin/
-    chmod +x /usr/local/bin/git-cliff
+# For mono-repo: install-only mode
+- name: Install git-cliff [monorepo]
+  uses: taiki-e/install-action@331a600f1b10a3fed8dc56f925012bede91ae51f # v2.44.25
+  with:
+    tool: git-cliff
+
+# For regular repos: generation mode
+- name: Generate release notes
+  uses: orhun/git-cliff-action@e16f179f0be49ecdfe63753837f20b9531642772 # v4.7.0
 ```
 
 **Problems:**
-- Version hardcoded in multiple places
-- Platform-specific (x86_64-unknown-linux-gnu)
-- Repetitive across workflows
-- No easy way to update version
+- Two separate actions for the same tool
+- `orhun/git-cliff-action` doesn't support install-only mode
+- Must manage two dependency versions
+- More complex dependabot updates
 
-**Proposed solutions (to be refined):**
+**Proposed solution:**
 
-**Option A:** Create a composite action in `go-openapi/gh-actions`
+**Contribute install-only mode to `orhun/git-cliff-action`:**
+- Add an input parameter like `install-only: true` to the action
+- When enabled, skip the generation step and only install the binary
+- This would allow using a single action for both use cases:
+
 ```yaml
-# go-openapi/gh-actions/install/git-cliff/action.yml
-inputs:
-  version:
-    description: "git-cliff version to install"
-    default: "latest"
+# Install-only for mono-repo (custom bash scripts)
+- uses: orhun/git-cliff-action@vX.X.X
+  with:
+    install-only: true
+
+# Full generation for regular repos
+- uses: orhun/git-cliff-action@vX.X.X
+  with:
+    config: .cliff.toml
+    args: --current
 ```
 
-**Option B:** Use existing git-cliff action (if available)
-- Check if upstream provides an official action
-- If not, consider contributing one
+**Benefits:**
+- Single dependency to manage
+- Simpler dependabot updates
+- Consistent version across all workflows
+- Upstream contribution benefits broader community
+- Reduced maintenance burden
 
-**Option C:** Use a package manager
-```yaml
-- run: |
-    # If git-cliff is available via apt/brew/cargo
-    cargo install git-cliff
-```
-
-**Option D:** Docker-based approach
-```yaml
-- uses: docker://ghcr.io/orhun/git-cliff:latest
-```
-
-**Considerations:**
-- Version pinning for reproducibility
-- Platform compatibility (Linux/macOS/Windows)
-- Installation speed (caching)
-- Maintenance burden
-
-**Story to be refined:** Need to investigate:
-- What git-cliff installation options exist
-- Which approach best fits our security/pinning requirements
-- Whether to create our own action or use existing solutions
+**Action items:**
+- [ ] Open issue/discussion on https://github.com/orhun/git-cliff-action
+- [ ] Propose install-only mode feature
+- [ ] Contribute PR if maintainer is receptive
+- [ ] Update workflows once merged and released
 
 ### 4. Other Potential Improvements
 
