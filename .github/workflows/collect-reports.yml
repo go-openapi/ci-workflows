@@ -32,7 +32,7 @@ jobs:
           path: reports/
       -
         name: Install go-junit-report
-        uses: go-openapi/gh-actions/install/go-junit-report@693a7ad00bf8afbe8f8ab9b67a7256918607e54b9 # v1.4.0
+        uses: go-openapi/gh-actions/install/go-junit-report@93a7ad00bf8afbe8f8ab9b67a7256918607e54b9 # v1.4.0
       -
         name: Convert test reports to a merged JUnit XML
         # NOTE: codecov test reports only support JUnit format at this moment. See https://docs.codecov.com/docs/test-analytics.
@@ -57,7 +57,7 @@ jobs:
           verbose: true
       -
         name: Install go-ctrf-json-reporter
-        uses: go-openapi/gh-actions/install/go-ctrf-json-reporter@693a7ad00bf8afbe8f8ab9b67a7256918607e54b9 # v1.4.0
+        uses: go-openapi/gh-actions/install/go-ctrf-json-reporter@93a7ad00bf8afbe8f8ab9b67a7256918607e54b9 # v1.4.0
       -
         name: Convert test reports to CTRF JSON
         # description: |
