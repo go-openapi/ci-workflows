@@ -1,0 +1,41 @@
+{%- if version %}
+## [{{ version | trim_start_matches(pat="v") }}]({{ self::remote_url() }}/tree/{{ version }}) - {{ timestamp | date(format="%Y-%m-%d") }}
+{%- else %}
+## [unreleased]
+{%- endif %}
+{%- if message %}
+  {%- raw %}
+  {% endraw %}
+{{ message }}
+  {%- raw %}
+  {% endraw %}
+{%- endif %}
+
+---
+
+{%- for group, commits in commits | group_by(attribute="group") %}
+  {%- raw %}
+  {% endraw %}
+### {{ group | upper_first }}
+    {%- raw %}
+    {% endraw %}
+    {%- for commit in commits %}
+      {%- if commit.remote.pr_title %}
+        {%- set commit_message = commit.remote.pr_title %}
+      {%- else %}
+        {%- set commit_message = commit.message %}
+      {%- endif %}
+* {{ commit_message | split(pat="\n") | first | trim }}
+      {%- if commit.remote.username %}
+{%- raw %} {% endraw %}by [@{{ commit.remote.username }}](https://github.com/{{ commit.remote.username }})
+      {%- endif %}
+      {%- if commit.remote.pr_number %}
+{%- raw %} {% endraw %}in [#{{ commit.remote.pr_number }}]({{ self::remote_url() }}/pull/{{ commit.remote.pr_number }})
+      {%- endif %}
+{%- raw %} {% endraw %}[...]({{ self::remote_url() }}/commit/{{ commit.id }})
+  {%- endfor %}
+{%- endfor %}
+
+{%- macro remote_url() -%}
+  https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}
+{%- endmacro -%}

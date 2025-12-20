@@ -16,7 +16,10 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     outputs:
-      is_monorepo: ${{ steps.detect-monorepo.outputs.is_monorepo }}
+      is-monorepo: ${{ steps.detect-monorepo.outputs.is-monorepo }}
+      bash-paths: ${{ steps.detect-monorepo.outputs.bash-paths }}
+      bash-subpaths: ${{ steps.detect-monorepo.outputs.bash-subpaths }}
+      module-names: ${{ steps.detect-monorepo.outputs.names }}
     steps:
       -
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
@@ -32,19 +35,11 @@ jobs:
       -
         name: Detect go mono-repo
         id: detect-monorepo
-        run: |
-          count_modules=$(go list -m|wc -l)
-          if [[ "${count_modules}" -gt 1 ]] ; then
-            echo "is_monorepo=true" >> "${GITHUB_OUTPUT}"
-            echo "::notice title=is_monorepo::true"
-            exit
-          fi
-          echo "is_monorepo=false" >> "${GITHUB_OUTPUT}"
-          echo "::notice title=is_monorepo::false"
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@0ec18ca1ddc1e2257097ae8d57952733109d80a1 # v1.4.0
       -
-        name: golangci-lint [mono-repo]
+        name: golangci-lint [monorepo]
         # golangci-action v9.1+ has an experimental built-in mono repo detection setup.
-        if: ${{ steps.detect-monorepo.outputs.is_monorepo == 'true' }}
+        if: ${{ steps.detect-monorepo.outputs.is-monorepo == 'true' }}
         uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
         with:
           version: latest
@@ -52,7 +47,7 @@ jobs:
           experimental: "automatic-module-directories"
       -
         name: golangci-lint
-        if: ${{ steps.detect-monorepo.outputs.is_monorepo != 'true' }}
+        if: ${{ steps.detect-monorepo.outputs.is-monorepo != 'true' }}
         uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
         with:
           version: latest
@@ -62,7 +57,7 @@ jobs:
       # Carry out the linting the traditional way, within a shell loop
       #-
       #  name: Lint multiple modules
-      #  if: ${{ steps.detect-monorepo.outputs.is_monorepo == 'true' }}
+      #  if: ${{ steps.detect-monorepo.outputs.is-monorepo == 'true' }}
       #  # golangci-lint doesn't support go.work to lint multiple modules in one single pass
       #  run: |
       #    set -euxo pipefail
@@ -72,7 +67,7 @@ jobs:
       #      pushd "${module_location}"
       #      golangci-lint run --new-from-rev origin/master
       #      popd
-      #    done < <(go list -f '{{.Dir}}' -m)
+      #    done < <(echo ${{ steps.detect-monorepo.outputs.bash-paths }})
 
   test:
     name: Unit tests mono-repo
@@ -94,26 +89,15 @@ jobs:
           cache: true
           cache-dependency-path: '**/go.sum'
       -
-        name: Detect go version
-        id: detect-test-work
-        run: |
-          go_minor_version=$(echo '${{ steps.go-setup.outputs.go-version }}'|cut -d' ' -f3|cut -d'.' -f2)
-          echo "go-minor-version=${go_minor_version}" >> "${GITHUB_OUTPUT}"
-
-          if [[ "${go_minor_version}" -ge 25 && -f "go.work" ]] ; then
-            echo "supported=true" >> "${GITHUB_OUTPUT}"
-            echo "::notice title=go test work supported::true"
-          else
-            echo "supported=false" >> "${GITHUB_OUTPUT}"
-            echo "::notice title=go test work supported::false"
-          fi
-          echo "::notice title=go minor version::${go_minor_version}"
+        name: Detect go version capabilities
+        id: detect-go-version
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-version@0ec18ca1ddc1e2257097ae8d57952733109d80a1 # v1.4.0
       -
         name: Install gotestsum
-        uses: go-openapi/gh-actions/install/gotestsum@eb161ed408645b24aaf6120cd5e4a893cf2c0af2 # v1.3.1
+        uses: go-openapi/gh-actions/install/gotestsum@0ec18ca1ddc1e2257097ae8d57952733109d80a1 # v1.4.0
       -
-        name: Run unit tests on all modules in this repo (go1.25+ with go.work)
-        if: ${{ needs.lint.outputs.is_monorepo == 'true' && steps.detect-test-work.outputs.supported == 'true' }}
+        name: Run unit tests on all modules (go1.25+ with go.work) [monorepo]
+        if: ${{ needs.lint.outputs.is-monorepo == 'true' && steps.detect-go-version.outputs.is-gotestwork-supported == 'true' }}
         # with go.work file enabled, go test recognizes sub-modules and collects all packages to be covered
         # without specifying -coverpkg.
         #
@@ -133,22 +117,14 @@ jobs:
           -covermode=atomic
           ./...
       - 
-        name: Run unit tests on all modules in this repo (<go1.25 or no go.work)
+        name: Run unit tests on all modules (<go1.25 or no go.work) [monorepo]
         if: >
           ${{
-              needs.lint.outputs.is_monorepo == 'true' && steps.detect-test-work.outputs.supported != 'true'
+              needs.lint.outputs.is-monorepo == 'true' && steps.detect-go-version.outputs.is-gotestwork-supported != 'true'
           }}
         run: |
           declare -a ALL_MODULES
-          BASH_MAJOR=$(echo "${BASH_VERSION}"|cut -d'.' -f1)
-          if [[ "${BASH_MAJOR}" -ge 4 ]] ; then
-            mapfile ALL_MODULES < <(go list -f '{{.Dir}}/...' -m)
-          else
-            # for older bash versions, e.g. on macOS runner. This fallback will eventually disappear.
-            while read -r line ; do
-              ALL_MODULES+=("${line}")
-            done < <(go list -f '{{.Dir}}/...' -m)
-          fi
+          ALL_MODULES=(${{ needs.lint.outputs.bash-subpaths }}) # a bash array with all module folders, suffixed with "/..."
           echo "::notice title=Modules found::${ALL_MODULES[@]}"
 
           gotestsum \
@@ -163,7 +139,7 @@ jobs:
             ${ALL_MODULES[@]}
       -
         name: Run unit tests
-        if: ${{ needs.lint.outputs.is_monorepo != 'true' }}
+        if: ${{ needs.lint.outputs.is-monorepo != 'true' }}
         run: >
           gotestsum
           --jsonfile 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json'
