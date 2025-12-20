@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       is-monorepo: ${{ steps.detect-monorepo.outputs.is-monorepo }}
-      #bash-paths: ${{ steps.detect-monorepo.outputs.bash-paths }}
+      bash-paths: ${{ steps.detect-monorepo.outputs.bash-paths }}
       bash-subpaths: ${{ steps.detect-monorepo.outputs.bash-subpaths }}
       module-names: ${{ steps.detect-monorepo.outputs.names }}
     steps:
@@ -35,7 +35,7 @@ jobs:
       -
         name: Detect go mono-repo
         id: detect-monorepo
-        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@93a7ad00bf8afbe8f8ab9b67a7256918607e54b9 # v1.4.0
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@7cd49be6de25246b11f7cb05718409067ae4e820 # v1.4.0
       -
         name: golangci-lint [monorepo]
         # golangci-action v9.1+ has an experimental built-in mono repo detection setup.
@@ -91,10 +91,10 @@ jobs:
       -
         name: Detect go version capabilities
         id: detect-go-version
-        uses: go-openapi/gh-actions/ci-jobs/detect-go-version@93a7ad00bf8afbe8f8ab9b67a7256918607e54b9 # v1.4.0
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-version@7cd49be6de25246b11f7cb05718409067ae4e820 # v1.4.0
       -
         name: Install gotestsum
-        uses: go-openapi/gh-actions/install/gotestsum@93a7ad00bf8afbe8f8ab9b67a7256918607e54b9 # v1.4.0
+        uses: go-openapi/gh-actions/install/gotestsum@7cd49be6de25246b11f7cb05718409067ae4e820 # v1.4.0
       -
         name: Run unit tests on all modules (go1.25+ with go.work) [monorepo]
         if: ${{ needs.lint.outputs.is-monorepo == 'true' && steps.detect-go-version.outputs.is-gotestwork-supported == 'true' }}
