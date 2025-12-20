@@ -53,7 +53,7 @@ jobs:
           cache: true
       -
         name: Install gotestsum
-        uses: go-openapi/gh-actions/install/gotestsum@7cd49be6de25246b11f7cb05718409067ae4e820 # v1.4.0
+        uses: go-openapi/gh-actions/install/gotestsum@0ec18ca1ddc1e2257097ae8d57952733109d80a1 # v1.4.0
       -
         name: Run unit tests
         run: >
