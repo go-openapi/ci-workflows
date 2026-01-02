@@ -55,6 +55,16 @@ jobs:
         name: Install gotestsum
         uses: go-openapi/gh-actions/install/gotestsum@9c04f383fd8d769f5f49842f6e1ae9092ea25071 # v1.4.3
       -
+        name: Ensure TMP is created on windows runners
+        # On windows, some tests require testing.TempDir to reside on the same drive as the code.
+        # TMP is used by os.TempDir() to determine the location of temporary files.
+        if: ${{ runner.os  == 'Windows' }}
+        shell: bash
+        run: |
+          TMP="${{ github.workspace }}\..\tmp"
+          mkdir -p ${TMP}
+          echo "TMP=${TMP}" >> "${GITHUB_ENV}"
+      -
         name: Run unit tests
         run: >
           gotestsum
