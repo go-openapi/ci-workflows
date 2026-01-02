@@ -346,5 +346,5 @@ jobs:
       cliff-config: ${{ inputs.cliff-config }}
       cliff-config-url: ${{ inputs.cliff-config-url }}
       monorepo-cliff-template: ${{ inputs.monorepo-cliff-template }}
-      monorepo-cliff-template-url: ${{ inputs.monorepo-cliff-temlate-url }}
+      monorepo-cliff-template-url: ${{ inputs.monorepo-cliff-template-url }}
     secrets: inherit
