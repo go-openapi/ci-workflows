@@ -114,6 +114,9 @@ jobs:
           TARGET_TAG: ${{ inputs.target-tag }}
           MODULE_PATHS: ${{ steps.detect-monorepo.outputs.bash-paths }}
         run: |
+          set -x
+          unset GOTOOLCHAIN
+
           # Update go.mod files in all modules to reference the new version
           root="$(git rev-parse --show-toplevel)"
           cd "${root}"
