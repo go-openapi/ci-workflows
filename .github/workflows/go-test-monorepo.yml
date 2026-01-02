@@ -35,7 +35,7 @@ jobs:
       -
         name: Detect go mono-repo
         id: detect-monorepo
-        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@00f8939fb0771da06b0c115b9e011a7c321e0df4 # v1.4.0
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@6378d2e019e27c118a42b5ca14262b1c6309d4e9 # v1.4.0
       -
         name: golangci-lint [monorepo]
         # golangci-action v9.1+ has an experimental built-in mono repo detection setup.
@@ -91,10 +91,10 @@ jobs:
       -
         name: Detect go version capabilities
         id: detect-go-version
-        uses: go-openapi/gh-actions/ci-jobs/detect-go-version@00f8939fb0771da06b0c115b9e011a7c321e0df4 # v1.4.0
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-version@6378d2e019e27c118a42b5ca14262b1c6309d4e9 # v1.4.0
       -
         name: Install gotestsum
-        uses: go-openapi/gh-actions/install/gotestsum@00f8939fb0771da06b0c115b9e011a7c321e0df4 # v1.4.0
+        uses: go-openapi/gh-actions/install/gotestsum@6378d2e019e27c118a42b5ca14262b1c6309d4e9 # v1.4.0
       -
         name: Run unit tests on all modules (go1.25+ with go.work) [monorepo]
         if: ${{ needs.lint.outputs.is-monorepo == 'true' && steps.detect-go-version.outputs.is-gotestwork-supported == 'true' }}
