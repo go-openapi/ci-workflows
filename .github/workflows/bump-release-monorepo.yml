@@ -18,21 +18,14 @@ defaults:
 on:
   workflow_call:
     inputs:
-      bump-patch:
-        description: Bump a patch version release
-        type: string
-        required: false
-        default: 'true'
-      bump-minor:
-        description: Bump a minor version release
-        type: string
-        required: false
-        default: 'false'
-      bump-major:
-        description: Bump a major version release
-        type: string
-        required: false
-        default: 'false'
+      bump-type:
+        description: Type of bump (patch, minor, major)
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
+        default: patch
       tag-message-title:
         description: Tag message title to prepend to the release notes
         required: false
@@ -132,9 +125,7 @@ jobs:
       contents: write
     uses: ./.github/workflows/bump-release.yml
     with:
-      bump-patch: ${{ inputs.bump-patch }}
-      bump-minor: ${{ inputs.bump-minor }}
-      bump-major: ${{ inputs.bump-major }}
+      bump-type: ${{ inputs.bump-type }}
       tag-message-title: ${{ inputs.tag-message-title }}
       tag-message-body: ${{ inputs.tag-message-body }}
       enable-tag-signing: ${{ inputs.enable-tag-signing }}
@@ -156,13 +147,35 @@ jobs:
         with:
           fetch-depth: 0
       -
+        name: Determine bump type
+        id: bump-check
+        run: |
+          BUMP_TYPE="${{ inputs.bump-type }}"
+
+          if [[ "${BUMP_TYPE}" == "patch" ]] ; then
+            echo "bump-patch=true" >> "${GITHUB_OUTPUT}"
+            echo "bump-minor=false" >> "${GITHUB_OUTPUT}"
+            echo "bump-major=false" >> "${GITHUB_OUTPUT}"
+          elif [[ "${BUMP_TYPE}" == "minor" ]] ; then
+            echo "bump-patch=false" >> "${GITHUB_OUTPUT}"
+            echo "bump-minor=true" >> "${GITHUB_OUTPUT}"
+            echo "bump-major=false" >> "${GITHUB_OUTPUT}"
+          elif [[ "${BUMP_TYPE}" == "major" ]] ; then
+            echo "bump-patch=false" >> "${GITHUB_OUTPUT}"
+            echo "bump-minor=false" >> "${GITHUB_OUTPUT}"
+            echo "bump-major=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "::error::invalid parameter ${BUMP_TYPE}"
+            exit 1
+          fi
+      -
         name: Determine next tag
         id: bump-release
         uses: go-openapi/gh-actions/ci-jobs/next-tag@9c04f383fd8d769f5f49842f6e1ae9092ea25071 # v1.4.3
         with:
-          bump-patch: ${{ inputs.bump-patch }}
-          bump-minor: ${{ inputs.bump-minor }}
-          bump-major: ${{ inputs.bump-major }}
+          bump-patch: ${{ steps.bump-check.outputs.bump-patch }}
+          bump-minor: ${{ steps.bump-check.outputs.bump-minor }}
+          bump-major: ${{ steps.bump-check.outputs.bump-major }}
 
   prepare-modules:
     name: Prepare module updates [monorepo]

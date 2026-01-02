@@ -13,21 +13,14 @@ permissions:
 on:
   workflow_dispatch:
     inputs:
-      bump-patch:
-        description: Bump a patch version release
-        type: string
-        required: false
-        default: 'true'
-      bump-minor:
-        description: Bump a minor version release
-        type: string
-        required: false
-        default: 'false'
-      bump-major:
-        description: Bump a major version release
-        type: string
-        required: false
-        default: 'false'
+      bump-type:
+        description: Type of bump (patch, minor, major)
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
+        default: patch
       tag-message-title:
         description: Tag message title to prepend to the release notes
         required: false
@@ -45,9 +38,7 @@ jobs:
       contents: write
     uses: ./.github/workflows/bump-release.yml
     with:
-      bump-patch: ${{ inputs.bump-patch }}
-      bump-minor: ${{ inputs.bump-minor }}
-      bump-major: ${{ inputs.bump-major }}
+      bump-type: ${{ inputs.bump-type }}
       tag-message-title: ${{ inputs.tag-message-title }}
       tag-message-body: ${{ inputs.tag-message-body }}
     secrets: inherit
