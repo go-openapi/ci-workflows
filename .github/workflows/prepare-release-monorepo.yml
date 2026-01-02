@@ -136,13 +136,19 @@ jobs:
           for dir in "${ALL_FOLDERS[@]}"; do
             echo "::notice title=processing-module::Processing module in ${dir}"
             pushd "${dir}" > /dev/null
+            go mod download -x
 
             # List dependencies and update those matching the root module or sub-modules
-            # This matches both the root module and any sub-modules under the same path
+            # This matches both the root module and any sub-modules under the same path.
+            #
+            # In some situations, we may have a test dependency of a module on itself and this
+            # case must be skipped.
+            current_module=$(go list)
             go list -deps -test \
               -f '{{ if .DepOnly }}{{ with .Module }}{{ .Path }}{{ end }}{{ end }}' | \
             sort -u | \
             grep "^${root_module}" | \
+            grep "^${current_module}$" | \
             while read -r module ; do
               echo "::notice title=updating-dependency::Updating ${module} to ${TARGET_TAG}"
               go mod edit -require "${module}@${TARGET_TAG}"
@@ -150,7 +156,7 @@ jobs:
 
             # Tidy the go.mod file
             echo "::notice title=tidy::Running go mod tidy in ${dir}"
-            go mod tidy
+            go mod tidy -v
 
             popd > /dev/null
           done
