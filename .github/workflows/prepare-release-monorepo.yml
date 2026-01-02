@@ -107,7 +107,7 @@ jobs:
       -
         name: Detect go mono-repo
         id: detect-monorepo
-        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@c4b289d8cf5483e32e6970bcf8878b6be5a779e2 # v1.4.2
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@9c04f383fd8d769f5f49842f6e1ae9092ea25071 # v1.4.3
       -
         name: Update go.mod files for new release
         env:
@@ -160,7 +160,7 @@ jobs:
           git status --short
       -
         name: Configure bot credentials
-        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@c4b289d8cf5483e32e6970bcf8878b6be5a779e2 # v1.4.2
+        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@9c04f383fd8d769f5f49842f6e1ae9092ea25071 # v1.4.3
         id: bot-credentials
         # For go-openapi repos (using secrets: inherit):
         #   Falls back to: CI_BOT_APP_ID, CI_BOT_APP_PRIVATE_KEY, CI_BOT_GPG_PRIVATE_KEY, etc.
@@ -230,7 +230,7 @@ jobs:
         run: gh pr review --approve "$PR_URL"
       -
         name: Wait for all workflow runs to complete
-        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@c4b289d8cf5483e32e6970bcf8878b6be5a779e2 # v1.4.2
+        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@9c04f383fd8d769f5f49842f6e1ae9092ea25071 # v1.4.3
         with:
           pr-url: ${{ env.PR_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
