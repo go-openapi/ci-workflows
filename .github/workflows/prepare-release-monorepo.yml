@@ -112,6 +112,7 @@ jobs:
         name: Update go.mod files for new release
         env:
           TARGET_TAG: ${{ inputs.target-tag }}
+          MODULE_PATHS: ${{ steps.detect-monorepo.outputs.bash-paths }}
         run: |
           # Update go.mod files in all modules to reference the new version
           root="$(git rev-parse --show-toplevel)"
@@ -127,7 +128,9 @@ jobs:
           # what we are adding here is only visible to external users of the package, not locally.
           #
           # Therefore, there is no need to care about the order in which we apply this change.
-          while read -r dir ; do
+          declare -a ALL_FOLDERS
+          mapfile -d' ' -t ALL_FOLDERS < <(printf "%s" "${MODULE_PATHS}")
+          while dir in "${ALL_FOLDERS[@]}"; do
             echo "::notice title=processing-module::Processing module in ${dir}"
             pushd "${dir}" > /dev/null
 
@@ -147,7 +150,7 @@ jobs:
             go mod tidy
 
             popd > /dev/null
-          done < <(echo ${{ steps.detect-monorepo.outputs.bash-paths }})
+          done
 
           # Sync go.work if it exists
           if [[ -f go.work ]] ; then
