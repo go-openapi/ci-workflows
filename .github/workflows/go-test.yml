@@ -53,7 +53,7 @@ jobs:
           cache: true
       -
         name: Install gotestsum
-        uses: go-openapi/gh-actions/install/gotestsum@9c04f383fd8d769f5f49842f6e1ae9092ea25071 # v1.4.3
+        uses: go-openapi/gh-actions/install/gotestsum@8340d5403ad368f2ddaa0bc3b10ce38a10099e2c # v1.4.3
       -
         name: Ensure TMP is created on windows runners
         # On windows, some tests require testing.TempDir to reside on the same drive as the code.
