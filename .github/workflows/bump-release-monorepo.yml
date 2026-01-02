@@ -279,6 +279,7 @@ jobs:
           NEXT_TAG: ${{ needs.determine-next-tag.outputs.next-tag }}
           MESSAGE_TITLE: ${{ inputs.tag-message-title }}
           MESSAGE_BODY: ${{ inputs.tag-message-body }}
+          MODULE_RELATIVE_NAMES: ${{ needs.detect-modules.outputs.bash-relative-names }}
         run: |
           # Tag all modules similar to hack/tag_modules.sh
           # Note: The PR with updated go.mod files has been merged at this point
@@ -302,7 +303,9 @@ jobs:
           fi
 
           # Tag all modules
-          while read -r module_relative_name ; do
+          declare -a ALL_RELATIVE_MODULES
+          mapfile -d' ' -t ALL_RELATIVE_MODULES < <(printf "%s" "${MODULE_RELATIVE_NAMES}")
+          for module_relative_name in "${ALL_RELATIVE_MODULES[@]}"; do
             if [[ -z "${module_relative_name}" ]] ; then
               module_tag="${NEXT_TAG}" # e.g. "v0.24.0"
             else
@@ -317,7 +320,7 @@ jobs:
             if [[ -n "${SIGNED}" ]] ; then
               git tag -v "${module_tag}"
             fi
-          done < <(echo ${{ needs.detect-modules.outputs.bash-relative-names }})
+          done
 
           # Save all tags for output
           echo "all-tags=${all_tags[@]}" >> "${GITHUB_OUTPUT}"

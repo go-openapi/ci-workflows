@@ -130,7 +130,7 @@ jobs:
           # Therefore, there is no need to care about the order in which we apply this change.
           declare -a ALL_FOLDERS
           mapfile -d' ' -t ALL_FOLDERS < <(printf "%s" "${MODULE_PATHS}")
-          while dir in "${ALL_FOLDERS[@]}"; do
+          for dir in "${ALL_FOLDERS[@]}"; do
             echo "::notice title=processing-module::Processing module in ${dir}"
             pushd "${dir}" > /dev/null
 
