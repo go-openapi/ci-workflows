@@ -20,12 +20,9 @@ on:
     inputs:
       bump-type:
         description: Type of bump (patch, minor, major)
-        type: choice
-        options:
-        - patch
-        - minor
-        - major
+        type: string
         default: patch
+        required: false
       tag-message-title:
         description: Tag message title to prepend to the release notes
         required: false
