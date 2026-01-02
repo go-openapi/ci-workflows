@@ -92,7 +92,7 @@ jobs:
     name: Detect mono-repo modules
     runs-on: ubuntu-latest
     outputs:
-      is_monorepo: ${{ steps.detect-monorepo.outputs.is_monorepo }}
+      is-monorepo: ${{ steps.detect-monorepo.outputs.is-monorepo }}
       names: ${{ steps.detect-monorepo.outputs.names }}
       bash-relative-names: ${{ steps.detect-monorepo.outputs.bash-relative-names }}
     steps:
