@@ -147,15 +147,14 @@ jobs:
             # In some situations, we may have a test dependency of a module on itself and this
             # case must be skipped.
             current_module=$(go list)
-            go list -deps -test \
-              -f '{{ if .DepOnly }}{{ with .Module }}{{ .Path }}{{ end }}{{ end }}' | \
-            sort -u | \
-            grep "^${root_module}" | \
-            grep -v "^${current_module}$" | \
             while read -r module ; do
               echo "::notice title=updating-dependency::Updating ${module} to ${TARGET_TAG}"
               go mod edit -require "${module}@${TARGET_TAG}"
-            done
+            done < <( go list -deps -test \
+              -f '{{ if .DepOnly }}{{ with .Module }}{{ .Path }}{{ end }}{{ end }}' | \
+              sort -u | \
+              grep "^${root_module}" | \
+              grep -v "^${current_module}$" || true )
             echo "Transformed go.mod"
             cat go.mod
 
