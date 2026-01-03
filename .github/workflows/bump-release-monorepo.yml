@@ -320,7 +320,7 @@ jobs:
           declare -a ALL_RELATIVE_MODULES
           mapfile -d' ' -t ALL_RELATIVE_MODULES < <(printf "%s" "${MODULE_RELATIVE_NAMES}")
           for module_relative_name in "${ALL_RELATIVE_MODULES[@]}"; do
-            module_relative_name=${module_relative_name#"github.com/${GITHUB_REPO}"} # in some case, the module is not prefixed by the root module, e.g. "v2" modules.
+            module_relative_name=${module_relative_name#"github.com/${GITHUB_REPO}/"} # in some case, the module is not prefixed by the root module, e.g. "v2" modules.
             if [[ -z "${module_relative_name}" || "${module_relative_name}" == "{root}" ]] ; then
               module_tag="${NEXT_TAG}" # e.g. "v0.24.0"
             else
