@@ -65,6 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       pull-request-url: ${{ steps.create-pull-request.outputs.pull-request-url }}
+      pull-request-operation: ${{ steps.create-pull-request.outputs.pull-request-operation }}
     steps:
       -
         name: Checkout repository
@@ -116,6 +117,18 @@ jobs:
           sign-commits: ${{ inputs.enable-commit-signing }}
           signoff: true # DCO
 
+  no-change:
+    needs: [update-contributors]
+    runs-on: ubuntu-latest
+    if: ${{ needs.update-contributors.outputs.pull-request-operation  == 'none' }}
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Report no change needed
+        run: |
+          echo "::notice title=no-change::No change needed to the contributors file"
+          exit 0
+
   auto-merge:
     # description: |
     #   Approves the PR, waits for all jobs (including non-required ones), and enables auto-merge.
@@ -129,6 +142,7 @@ jobs:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
+    if: ${{ needs.update-contributors.outputs.pull-request-operation  != 'none' }}
     env:
       PR_URL: ${{ needs.update-contributors.outputs.pull-request-url }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

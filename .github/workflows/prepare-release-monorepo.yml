@@ -23,6 +23,9 @@ on:
       pull-request-url:
         description: "URL of the created pull request"
         value: ${{ jobs.prepare-modules.outputs.pull-request-url }}
+      pull-request-operation:
+        description: "Pull request operation"
+        value: ${{ jobs.prepare-modules.outputs.pull-request-operation }}
     inputs:
       target-tag:
         description: |
@@ -90,6 +93,7 @@ jobs:
       pull-requests: write
     outputs:
       pull-request-url: ${{ steps.create-pull-request.outputs.pull-request-url }}
+      pull-request-operation: ${{ steps.create-pull-request.outputs.pull-request-operation }}
     steps:
       -
         name: Checkout repository
@@ -136,10 +140,12 @@ jobs:
           for dir in "${ALL_FOLDERS[@]}"; do
             echo "::notice title=processing-module::Processing module in ${dir}"
             pushd "${dir}" > /dev/null
+
             echo "Original go.mod"
             cat go.mod
 
-            go mod download -x
+            # Make sure we can get all dependencies
+            go mod download
 
             # List dependencies and update those matching the root module or sub-modules
             # This matches both the root module and any sub-modules under the same path.
@@ -155,6 +161,7 @@ jobs:
               sort -u | \
               grep "^${root_module}" | \
               grep -v "^${current_module}$" || true )
+
             echo "Transformed go.mod"
             cat go.mod
 
@@ -171,7 +178,7 @@ jobs:
             go work sync
           fi
 
-          # Show what changed
+          # Show what has changed
           echo "::notice title=changes::Git status after updates"
           git status --short
       -
@@ -218,6 +225,18 @@ jobs:
           sign-commits: ${{ inputs.enable-commit-signing }}
           signoff: true # DCO
 
+  no-change:
+    needs: [prepare-modules]
+    runs-on: ubuntu-latest
+    if: ${{ needs.update-contributors.outputs.pull-request-operation  == 'none' }}
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Report no change needed
+        run: |
+          echo "::notice title=no-change::No change needed to the go.mod files"
+          exit 0
+
   auto-merge:
     # description: |
     #   Approves the PR, waits for all jobs (including non-required ones), and enables auto-merge.
@@ -234,6 +253,7 @@ jobs:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
+    if: ${{ needs.prepare-modules.outputs.pull-request-operation  != 'none' }}
     env:
       PR_URL: ${{ needs.prepare-modules.outputs.pull-request-url }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

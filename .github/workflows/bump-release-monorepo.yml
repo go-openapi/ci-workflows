@@ -198,9 +198,11 @@ jobs:
     steps:
       -
         name: Checkout repository
+        if: ${{ needs.prepare-modules.outputs.pull-request-operation != 'none' }}  # skip if no pull request to be waited
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
       -
         name: Wait for PR to be merged
+        if: ${{ needs.prepare-modules.outputs.pull-request-operation != 'none' }}  # skip if no pull request to be waited
         run: |
           echo "::notice title=waiting-for-merge::Waiting for PR ${PR_URL} to be merged"
 
@@ -227,6 +229,15 @@ jobs:
 
           echo "::error title=timeout::Timed out waiting for PR to be merged after ${MAX_WAIT}s"
           exit 1
+      -
+        name: Report status
+        run: |
+          echo "::notice title=waiting-for-merge::Waiting for PR ${PR_URL} to be merged"
+          if [[ "${{ needs.prepare-modules.outputs.pull-request-operation }}" == "none" ]] ; then
+            echo "::notice title=wait-for-pr::no pull request expected. Skipped waiting."
+          else
+            echo "::notice title=wait-for-pr::pull request merged. Can proceed with the tagging and release"
+          fi
 
   tag-release-monorepo:
     name: Tag release [mono-repo]
@@ -282,6 +293,8 @@ jobs:
           MODULE_RELATIVE_NAMES: ${{ needs.detect-modules.outputs.bash-relative-names }}
           GITHUB_REPO: ${{ github.repository }}
         run: |
+          set -x
+
           # Tag all modules similar to hack/tag_modules.sh
           # Note: The PR with updated go.mod files has been merged at this point
           root="$(git rev-parse --show-toplevel)"
@@ -307,7 +320,7 @@ jobs:
           declare -a ALL_RELATIVE_MODULES
           mapfile -d' ' -t ALL_RELATIVE_MODULES < <(printf "%s" "${MODULE_RELATIVE_NAMES}")
           for module_relative_name in "${ALL_RELATIVE_MODULES[@]}"; do
-            module_relative_name=${module_relative_name#"${GITHUB_REPO}"}
+            module_relative_name=${module_relative_name#"${GITHUB_REPO}"} # in some case, the module is not prefixed by the root module, e.g. "v2" modules.
             if [[ -z "${module_relative_name}" || "${module_relative_name}" == "{root}" ]] ; then
               module_tag="${NEXT_TAG}" # e.g. "v0.24.0"
             else
