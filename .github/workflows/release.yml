@@ -52,6 +52,8 @@ jobs:
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 0
+          ref: ${{ inputs.tag }}
+          fetch-tags: true
       -
         uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
         with:
@@ -62,7 +64,7 @@ jobs:
       -
         name: Extract tag message
         id: get-message
-        # tag message is not retrieved unless we fetch the ref explictly
+        # tag message is not retrieved unless we fetch the ref explicitly
         run: |
           set -x
 
@@ -147,7 +149,6 @@ jobs:
           set -x
 
           LOCAL_TEMPLATE_LOCATION="${RUNNER_TEMP:-/tmp}/.cliff-monorepo.toml"
-          git fetch --depth=1 origin +refs/tags/*:refs/tags/* # fetch tags explicitly
 
           root_dir="$(git rev-parse --show-toplevel)"
           cd "${root_dir}"
