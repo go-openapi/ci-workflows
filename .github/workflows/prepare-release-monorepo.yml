@@ -229,7 +229,6 @@ jobs:
     needs: [prepare-modules]
     runs-on: ubuntu-latest
     if: ${{ needs.update-contributors.outputs.pull-request-operation  == 'none' }}
-    runs-on: ubuntu-latest
     steps:
       -
         name: Report no change needed
