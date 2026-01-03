@@ -149,6 +149,7 @@ jobs:
           set -x
 
           LOCAL_TEMPLATE_LOCATION="${RUNNER_TEMP:-/tmp}/.cliff-monorepo.toml"
+          ROOT_MODULE=$(echo "${ROOT_MODULE}"|sed -E 's/\/v[0-9]+$//')
 
           root_dir="$(git rev-parse --show-toplevel)"
           cd "${root_dir}"
@@ -246,7 +247,7 @@ jobs:
                   --tag-pattern "${tag_pattern}" \
                   ${excluded} \
                   --strip all \
-                  --current \
+                  --latest \
                   --with-tag-message "${TAG_MESSAGE}" \
                   | sed -E 's/^(#+) /\1# /g'
 
@@ -264,7 +265,7 @@ jobs:
           FULL_NOTES=$(git-cliff \
               ${cliff_config_flag} \
               --tag-pattern "${tag_pattern}" \
-              --current \
+              --latest \
               --with-tag-message "${TAG_MESSAGE}")
 
           # Assemble final release notes (Part 1 + Part 2)
@@ -291,7 +292,7 @@ jobs:
 
           echo "::notice title=release-notes::Generated two-part release notes for mono-repo"
       -
-        name: Generate release notes (local config)
+        name: Generate release notes [local config]
         # this uses git-cliff to generate a release note from the commit history
         if: ${{ inputs.is-monorepo != 'true' && steps.check-config.outputs.exists == 'true' }}
         id: notes-local
@@ -302,10 +303,10 @@ jobs:
         with:
           config: ${{ inputs.cliff-config }}
           args: >-
-            --current
+            --latest
             --with-tag-message '${{ steps.get-message.outputs.message }}'
       -
-        name: Generate release notes (remote config)
+        name: Generate release notes [remote config]
         # this uses git-cliff action with remote config URL
         if: ${{ inputs.is-monorepo != 'true' && steps.check-config.outputs.exists == 'false' }}
         id: notes-remote
@@ -317,7 +318,7 @@ jobs:
           config: ''
           args: >-
             --config-url '${{ inputs.cliff-config-url }}'
-            --current
+            --latest
             --with-tag-message '${{ steps.get-message.outputs.message }}'
       -
         name: Create github release
