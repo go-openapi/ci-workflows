@@ -144,7 +144,10 @@ jobs:
           ROOT_MODULE: ${{ steps.detect-monorepo.outputs.root-module }}
         run: |
           set -euo pipefail
+          set -x
+
           LOCAL_TEMPLATE_LOCATION="${RUNNER_TEMP:-/tmp}/.cliff-monorepo.toml"
+          git fetch --depth=1 origin +refs/tags/*:refs/tags/* # fetch tags explicitly
 
           root_dir="$(git rev-parse --show-toplevel)"
           cd "${root_dir}"
@@ -206,7 +209,7 @@ jobs:
           # Generate module-specific notes (Part 2)
           for (( i=0; i<${#ALL_RELATIVE_MODULES[@]}; i++ )); do
             relative_module="${ALL_RELATIVE_MODULES[$i]}"
-            relative_module=$(echo ${relative_module#"github.com/${GITHUB_REPO}/"}|sed  -E 's/\/v[0-9]+$//') # in some case, the module is not prefixed by the root module, e.g. "v2" modules.
+            relative_module=$(echo ${relative_module#"github.com/${GITHUB_REPO}/"}|sed -E 's/\/v[0-9]+$//') # in some case, the module is not prefixed by the root module, e.g. "v2" modules.
             folder="${ALL_FOLDERS[$i]}"
 
             # Build exclusion list for child modules
@@ -278,6 +281,9 @@ jobs:
             cat "${tmp_dir}/final-notes.md"
             echo 'EOF'
           } >> "${GITHUB_OUTPUT}"
+
+          # Log notes
+          cat "${tmp_dir}/final-notes.md"
 
           # Cleanup
           rm -rf "${tmp_dir}"
