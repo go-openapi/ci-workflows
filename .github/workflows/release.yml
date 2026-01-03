@@ -206,14 +206,14 @@ jobs:
           # Generate module-specific notes (Part 2)
           for (( i=0; i<${#ALL_RELATIVE_MODULES[@]}; i++ )); do
             relative_module="${ALL_RELATIVE_MODULES[$i]}"
-            relative_module=${relative_module#"github.com/${GITHUB_REPO}/"}|sed  -E 's/\/v[0-9]+$//' # in some case, the module is not prefixed by the root module, e.g. "v2" modules.
+            relative_module=$(echo ${relative_module#"github.com/${GITHUB_REPO}/"}|sed  -E 's/\/v[0-9]+$//') # in some case, the module is not prefixed by the root module, e.g. "v2" modules.
             folder="${ALL_FOLDERS[$i]}"
 
             # Build exclusion list for child modules
             excluded=$(other_module_paths "${i}" "${folder}")
 
             # Determine module name and tag pattern
-            if [[ "${relative_module}" == "{root}" ]] ; then
+            if [[ -z "${relative_module}" || "${relative_module}" == "{root}" ]] ; then
               # Root module
               module_name=$(basename "${ROOT_MODULE}")
               tag_pattern="^${semver_pattern}$"
