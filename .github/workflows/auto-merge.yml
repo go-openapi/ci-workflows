@@ -9,7 +9,7 @@ on:
 
         type: string
         required: false
-        default: 'true'
+        default: "true"
       organization-bot:
         description: |
           The bot name for your organization,
@@ -19,7 +19,7 @@ on:
 
         type: string
         required: false
-        default: 'bot-go-openapi[bot]'
+        default: "bot-go-openapi[bot]"
 
 permissions:
   contents: read
@@ -39,25 +39,72 @@ jobs:
       PR_URL: ${{ github.event.pull_request.html_url }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      -
-        name: Dependabot metadata
+      - name: Dependabot metadata
         id: metadata
         uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2.5.0
-      -
-        name: Auto-approve all dependabot PRs
+      - name: Auto-approve all dependabot PRs
         run: gh pr review --approve "$PR_URL"
-      -
-        name: Auto-merge dependabot PRs for development dependencies
+      - name: Auto-merge dependabot PRs for development dependencies
         if: ${{ contains(steps.metadata.outputs.dependency-group, 'development-dependencies') }}
-        run: gh pr merge --auto --rebase "$PR_URL"
-      -
-        name: Auto-merge dependabot PRs for go-openapi patches
+        run: |
+          set +e  # Don't exit on error
+          OUTPUT=$(gh pr merge --auto --rebase "$PR_URL" 2>&1)
+          EXIT_CODE=$?
+          set -e  # Re-enable exit on error
+          # Check if error is due to race condition (merge already in progress)
+          # GitHub GraphQL API returns: "GraphQL: Merge already in progress (mergePullRequest)"
+          if echo "$OUTPUT" | grep -q "Merge already in progress"; then
+            echo "::warning title=auto-merge::Auto-merge already handled by another workflow (race condition)"
+            exit 0
+          fi
+          if echo "$OUTPUT" | grep -q "Pull request is already merged"; then
+            echo "::warning title=auto-merge::Auto-merge already handled by another workflow (race condition)"
+            exit 0
+          fi
+          # Unexpected error - fail the workflow
+          echo "::error title=auto-merge::Failed to enable auto-merge"
+          echo "$OUTPUT"
+          exit $EXIT_CODE
+      - name: Auto-merge dependabot PRs for go-openapi patches
         if: ${{ contains(steps.metadata.outputs.dependency-group, 'go-openapi-dependencies') && (steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch') }}
-        run: gh pr merge --auto --rebase "$PR_URL"
-      -
-        name: Auto-merge dependabot PRs for golang.org updates
+        run: |
+          set +e  # Don't exit on error
+          gh pr merge --auto --rebase "$PR_URL"
+          # Check if error is due to race condition (merge already in progress)
+          # GitHub GraphQL API returns: "GraphQL: Merge already in progress (mergePullRequest)"
+          if echo "$OUTPUT" | grep -q "Merge already in progress"; then
+            echo "::warning title=auto-merge::Auto-merge already handled by another workflow (race condition)"
+            exit 0
+          fi
+          if echo "$OUTPUT" | grep -q "Pull request is already merged"; then
+            echo "::warning title=auto-merge::Auto-merge already handled by another workflow (race condition)"
+            exit 0
+          fi
+          # Unexpected error - fail the workflow
+          echo "::error title=auto-merge::Failed to enable auto-merge"
+          echo "$OUTPUT"
+          exit $EXIT_CODE
+      - name: Auto-merge dependabot PRs for golang.org updates
         if: ${{ contains(steps.metadata.outputs.dependency-group, 'golang-org-dependencies') }}
-        run: gh pr merge --auto --rebase "$PR_URL"
+        run: |
+          set +e  # Don't exit on error
+          OUTPUT=$(gh pr merge --auto --rebase "$PR_URL" 2>&1)
+          EXIT_CODE=$?
+          set -e  # Re-enable exit on error
+          # Check if error is due to race condition (merge already in progress)
+          # GitHub GraphQL API returns: "GraphQL: Merge already in progress (mergePullRequest)"
+          if echo "$OUTPUT" | grep -q "Merge already in progress"; then
+            echo "::warning title=auto-merge::Auto-merge already handled by another workflow (race condition)"
+            exit 0
+          fi
+          if echo "$OUTPUT" | grep -q "Pull request is already merged"; then
+            echo "::warning title=auto-merge::Auto-merge already handled by another workflow (race condition)"
+            exit 0
+          fi
+          # Unexpected error - fail the workflow
+          echo "::error title=auto-merge::Failed to enable auto-merge"
+          echo "$OUTPUT"
+          exit $EXIT_CODE
 
   actions-bot:
     # description: |
@@ -73,18 +120,31 @@ jobs:
       PR_URL: ${{ github.event.pull_request.html_url }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      -
-        name: Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      -
-        name: Auto-approve all bot-go-openapi PRs
+      - name: Auto-approve all bot-go-openapi PRs
         run: gh pr review --approve "$PR_URL"
-      -
-        name: Wait for all workflow runs to complete
-        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@8340d5403ad368f2ddaa0bc3b10ce38a10099e2c # v1.4.3
+      - name: Wait for all workflow runs to complete
+        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@f7ed44020a2682556ac42fa9c210142495270354 # v1.4.5
         with:
           pr-url: ${{ env.PR_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      -
-        name: Auto-merge bot-go-openapi PRs
-        run: gh pr merge --auto --rebase "$PR_URL"
+      - name: Auto-merge bot-go-openapi PRs
+        run: |
+          set +e  # Don't exit on error
+          OUTPUT=$(gh pr merge --auto --rebase "$PR_URL" 2>&1)
+          EXIT_CODE=$?
+          # Check if error is due to race condition (merge already in progress)
+          # GitHub GraphQL API returns: "GraphQL: Merge already in progress (mergePullRequest)"
+          if echo "$OUTPUT" | grep -q "Merge already in progress"; then
+            echo "::warning title=auto-merge::Auto-merge already handled by another workflow (race condition)"
+            exit 0
+          fi
+          if echo "$OUTPUT" | grep -q "Pull request is already merged"; then
+            echo "::warning title=auto-merge::Auto-merge already handled by another workflow (race condition)"
+            exit 0
+          fi
+          # Unexpected error - fail the workflow
+          echo "::error title=auto-merge::Failed to enable auto-merge"
+          echo "$OUTPUT"
+          exit $EXIT_CODE

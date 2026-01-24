@@ -86,7 +86,7 @@ jobs:
         name: Detect go mono-repo
         if: ${{ inputs.is-monorepo == 'true' }}
         id: detect-monorepo
-        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@8340d5403ad368f2ddaa0bc3b10ce38a10099e2c # v1.4.3
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@f7ed44020a2682556ac42fa9c210142495270354 # v1.4.5
       -
         name: Install git-cliff [monorepo]
         if: ${{ inputs.is-monorepo == 'true' }}

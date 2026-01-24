@@ -13,7 +13,7 @@ on:
           When enabled, commits in the pull request will be signed with the bot's GPG key.
         required: false
         type: string
-        default: 'true'
+        default: "true"
     secrets:
       github-app-id:
         description: |
@@ -67,41 +67,36 @@ jobs:
       pull-request-url: ${{ steps.create-pull-request.outputs.pull-request-url }}
       pull-request-operation: ${{ steps.create-pull-request.outputs.pull-request-operation }}
     steps:
-      -
-        name: Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      -
-        name: Identify all-time contributors to this repository
+      - name: Identify all-time contributors to this repository
         uses: github/contributors@0d5adc3833e89ee1f4145744f5d69313cf5ea238 # v1.7.8
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPOSITORY:  ${{ github.repository }}
-          LINK_TO_PROFILE: 'True'
-      -
-        name: Rename contributor file
+          REPOSITORY: ${{ github.repository }}
+          LINK_TO_PROFILE: "True"
+      - name: Rename contributor file
         run: |
           rm -rf contributors.json
           mv contributors.md CONTRIBUTORS.md
-      -
-        name: Configure bot credentials
-        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@8340d5403ad368f2ddaa0bc3b10ce38a10099e2c # v1.4.3
+      - name: Configure bot credentials
+        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@f7ed44020a2682556ac42fa9c210142495270354 # v1.4.5
         id: bot-credentials
         # For go-openapi repos (using secrets: inherit):
         #   Falls back to: CI_BOT_APP_ID, CI_BOT_APP_PRIVATE_KEY, CI_BOT_GPG_PRIVATE_KEY, etc.
         #
         # For other orgs: explicitly pass secrets with your custom names
         with:
-          enable-github-app: 'true'
+          enable-github-app: "true"
           github-app-id: ${{ secrets.github-app-id || secrets.CI_BOT_APP_ID }}
           github-app-private-key: ${{ secrets.github-app-private-key || secrets.CI_BOT_APP_PRIVATE_KEY }}
           enable-gpg-signing: ${{ inputs.enable-commit-signing }}
           gpg-private-key: ${{ secrets.gpg-private-key || secrets.CI_BOT_GPG_PRIVATE_KEY }}
           gpg-passphrase: ${{ secrets.gpg-passphrase || secrets.CI_BOT_GPG_PASSPHRASE }}
           gpg-fingerprint: ${{ secrets.gpg-fingerprint || secrets.CI_BOT_SIGNING_KEY }}
-          enable-commit-signing: 'true'
-          enable-tag-signing: 'false'
-      -
-        name: Create a PR
+          enable-commit-signing: "true"
+          enable-tag-signing: "false"
+      - name: Create a PR
         id: create-pull-request
         uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1.0
         with:
@@ -122,8 +117,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ needs.update-contributors.outputs.pull-request-operation  == 'none' }}
     steps:
-      -
-        name: Report no change needed
+      - name: Report no change needed
         run: |
           echo "::notice title=no-change::No change needed to the contributors file"
           exit 0
@@ -146,20 +140,16 @@ jobs:
       PR_URL: ${{ needs.update-contributors.outputs.pull-request-url }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      -
-        name: Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      -
-        name: Auto-approve PR
+      - name: Auto-approve PR
         run: gh pr review --approve "$PR_URL"
-      -
-        name: Wait for all workflow runs to complete
-        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@8340d5403ad368f2ddaa0bc3b10ce38a10099e2c # v1.4.3
+      - name: Wait for all workflow runs to complete
+        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@f7ed44020a2682556ac42fa9c210142495270354 # v1.4.5
         with:
           pr-url: ${{ env.PR_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      -
-        name: Enable auto-merge
+      - name: Enable auto-merge
         run: |
           # Attempt to enable auto-merge, handling race condition gracefully
           set +e  # Don't exit on error
@@ -175,6 +165,10 @@ jobs:
           # Check if error is due to race condition (merge already in progress)
           # GitHub GraphQL API returns: "GraphQL: Merge already in progress (mergePullRequest)"
           if echo "$OUTPUT" | grep -q "Merge already in progress"; then
+            echo "::warning title=auto-merge::Auto-merge already handled by another workflow (race condition)"
+            exit 0
+          fi
+          if echo "$OUTPUT" | grep -q "Pull request is already merged"; then
             echo "::warning title=auto-merge::Auto-merge already handled by another workflow (race condition)"
             exit 0
           fi

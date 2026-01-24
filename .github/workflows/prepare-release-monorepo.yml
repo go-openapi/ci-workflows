@@ -41,7 +41,7 @@ on:
           When enabled, commits in the pull request will be signed with the bot's GPG key.
         required: false
         type: string
-        default: 'true'
+        default: "true"
     secrets:
       github-app-id:
         description: |
@@ -95,25 +95,21 @@ jobs:
       pull-request-url: ${{ steps.create-pull-request.outputs.pull-request-url }}
       pull-request-operation: ${{ steps.create-pull-request.outputs.pull-request-operation }}
     steps:
-      -
-        name: Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-      -
-        name: Setup Go
+      - name: Setup Go
         uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
           go-version: stable
           check-latest: true
           cache: true
-          cache-dependency-path: '**/go.sum'
-      -
-        name: Detect go mono-repo
+          cache-dependency-path: "**/go.sum"
+      - name: Detect go mono-repo
         id: detect-monorepo
-        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@8340d5403ad368f2ddaa0bc3b10ce38a10099e2c # v1.4.3
-      -
-        name: Update go.mod files for new release
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@f7ed44020a2682556ac42fa9c210142495270354 # v1.4.5
+      - name: Update go.mod files for new release
         env:
           TARGET_TAG: ${{ inputs.target-tag }}
           MODULE_PATHS: ${{ steps.detect-monorepo.outputs.bash-paths }}
@@ -181,26 +177,24 @@ jobs:
           # Show what has changed
           echo "::notice title=changes::Git status after updates"
           git status --short
-      -
-        name: Configure bot credentials
-        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@8340d5403ad368f2ddaa0bc3b10ce38a10099e2c # v1.4.3
+      - name: Configure bot credentials
+        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@f7ed44020a2682556ac42fa9c210142495270354 # v1.4.5
         id: bot-credentials
         # For go-openapi repos (using secrets: inherit):
         #   Falls back to: CI_BOT_APP_ID, CI_BOT_APP_PRIVATE_KEY, CI_BOT_GPG_PRIVATE_KEY, etc.
         #
         # For other orgs: explicitly pass secrets with your custom names
         with:
-          enable-github-app: 'true'
+          enable-github-app: "true"
           github-app-id: ${{ secrets.github-app-id || secrets.CI_BOT_APP_ID }}
           github-app-private-key: ${{ secrets.github-app-private-key || secrets.CI_BOT_APP_PRIVATE_KEY }}
           enable-gpg-signing: ${{ inputs.enable-commit-signing }}
           gpg-private-key: ${{ secrets.gpg-private-key || secrets.CI_BOT_GPG_PRIVATE_KEY }}
           gpg-passphrase: ${{ secrets.gpg-passphrase || secrets.CI_BOT_GPG_PASSPHRASE }}
           gpg-fingerprint: ${{ secrets.gpg-fingerprint || secrets.CI_BOT_SIGNING_KEY }}
-          enable-commit-signing: 'true'
-          enable-tag-signing: 'false'
-      -
-        name: Create pull request
+          enable-commit-signing: "true"
+          enable-tag-signing: "false"
+      - name: Create pull request
         id: create-pull-request
         uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1.0
         env:
@@ -230,8 +224,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ needs.prepare-modules.outputs.pull-request-operation  == 'none' }}
     steps:
-      -
-        name: Report no change needed
+      - name: Report no change needed
         run: |
           echo "::notice title=no-change::No change needed to the go.mod files"
           exit 0
@@ -257,20 +250,16 @@ jobs:
       PR_URL: ${{ needs.prepare-modules.outputs.pull-request-url }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      -
-        name: Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      -
-        name: Auto-approve PR
+      - name: Auto-approve PR
         run: gh pr review --approve "$PR_URL"
-      -
-        name: Wait for all workflow runs to complete
-        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@8340d5403ad368f2ddaa0bc3b10ce38a10099e2c # v1.4.3
+      - name: Wait for all workflow runs to complete
+        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@f7ed44020a2682556ac42fa9c210142495270354 # v1.4.5
         with:
           pr-url: ${{ env.PR_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      -
-        name: Enable auto-merge
+      - name: Enable auto-merge
         run: |
           # Attempt to enable auto-merge, handling race condition gracefully
           set +e  # Don't exit on error
@@ -286,6 +275,10 @@ jobs:
           # Check if error is due to race condition (merge already in progress)
           # GitHub GraphQL API returns: "GraphQL: Merge already in progress (mergePullRequest)"
           if echo "$OUTPUT" | grep -q "Merge already in progress"; then
+            echo "::warning title=auto-merge::Auto-merge already handled by another workflow (race condition)"
+            exit 0
+          fi
+          if echo "$OUTPUT" | grep -q "Pull request is already merged"; then
             echo "::warning title=auto-merge::Auto-merge already handled by another workflow (race condition)"
             exit 0
           fi
