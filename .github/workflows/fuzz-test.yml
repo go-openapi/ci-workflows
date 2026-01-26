@@ -142,11 +142,25 @@ jobs:
           -fuzzminimizetime='${{ env.FUZZ_MINIMIZE_TIME }}'
           ${{ matrix.package }}
       -
-        name: Upload failed corpus
+        name: Archive failed cases
+        if: ${{ failure() }}
+        run: |
+          tar czf fuzzcase.tgz $(find "${{ matrix.package }}/testdata/fuzz" -type f)
+      -
+        name: Upload failed cases
         if: ${{ failure() }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         # TODO(fredbi): ideally, after uploading, we should fire a pull request to add
         # this corpus to testdata.
+        with:
+          path: fuzzcase.tgz
+          name: '${{ runner.os }}-fuzz-corpus-failure'
+          retention-days: 60
+      -
+        name: Upload failed corpus
+        # This is the current corpus, it does not contain the latest failed case
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           path: ${{ env.CORPUS_DIR }}
           name: '${{ runner.os }}-fuzz-corpus-failure'
