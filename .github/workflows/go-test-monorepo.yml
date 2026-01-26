@@ -6,6 +6,11 @@ permissions:
 
 on:
   workflow_call:
+    inputs:
+      extra-flags:
+        description: extra flags to add to go test
+        type: string
+        required: false
 
 defaults:
   run:
@@ -115,6 +120,8 @@ jobs:
         # This requires:
         # * go.work properly initialized with use of all known modules
         # * go.work committed to git
+        env:
+          EXTRA_FLAGS: ${{ inputs.extra-flags }}
         run: >
           gotestsum
           --jsonfile 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json'
@@ -126,6 +133,7 @@ jobs:
           -timeout=20m
           -coverprofile='unit.coverage.${{ matrix.os }}-${{ matrix.go }}.out'
           -covermode=atomic
+          -coverpkg="$(go list)"/... ${EXTRA_FLAGS}
           ./...
       - 
         name: Run unit tests on all modules (<go1.25 or no go.work) [monorepo]
@@ -133,6 +141,8 @@ jobs:
           ${{
               needs.lint.outputs.is-monorepo == 'true' && steps.detect-go-version.outputs.is-gotestwork-supported != 'true'
           }}
+        env:
+          EXTRA_FLAGS: ${{ inputs.extra-flags }}
         run: |
           declare -a ALL_MODULES
           ALL_MODULES=(${{ needs.lint.outputs.bash-subpaths }}) # a bash array with all module folders, suffixed with "/..."
@@ -147,10 +157,13 @@ jobs:
             -timeout=20m \
             -coverprofile='unit.coverage.${{ matrix.os }}-${{ matrix.go }}.out' \
             -covermode=atomic \
+            -coverpkg="$(go list)"/... ${EXTRA_FLAGS} \
             ${ALL_MODULES[@]}
       -
         name: Run unit tests
         if: ${{ needs.lint.outputs.is-monorepo != 'true' }}
+        env:
+          EXTRA_FLAGS: ${{ inputs.extra-flags }}
         run: >
           gotestsum
           --jsonfile 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json'
@@ -161,7 +174,7 @@ jobs:
           -timeout=20m
           -coverprofile='unit.coverage.${{ matrix.os }}-${{ matrix.go }}.out'
           -covermode=atomic
-          -coverpkg="$(go list)"/...
+          -coverpkg="$(go list)"/... ${EXTRA_FLAGS}
           ./...
       -
         name: Upload coverage artifacts
