@@ -34,17 +34,20 @@ jobs:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
-    if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' }}
+    if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.html_url != '' }}
     env:
       PR_URL: ${{ github.event.pull_request.html_url }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Dependabot metadata
+      -
+        name: Dependabot metadata
         id: metadata
         uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2.5.0
-      - name: Auto-approve all dependabot PRs
+      -
+        name: Auto-approve all dependabot PRs
         run: gh pr review --approve "$PR_URL"
-      - name: Auto-merge dependabot PRs for development dependencies
+      -
+        name: Auto-merge dependabot PRs for development dependencies
         if: ${{ contains(steps.metadata.outputs.dependency-group, 'development-dependencies') }}
         run: |
           set +e  # Don't exit on error
@@ -65,7 +68,8 @@ jobs:
           echo "::error title=auto-merge::Failed to enable auto-merge"
           echo "$OUTPUT"
           exit $EXIT_CODE
-      - name: Auto-merge dependabot PRs for go-openapi patches
+      -
+        name: Auto-merge dependabot PRs for go-openapi patches
         if: ${{ contains(steps.metadata.outputs.dependency-group, 'go-openapi-dependencies') && (steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch') }}
         run: |
           set +e  # Don't exit on error
@@ -84,7 +88,8 @@ jobs:
           echo "::error title=auto-merge::Failed to enable auto-merge"
           echo "$OUTPUT"
           exit $EXIT_CODE
-      - name: Auto-merge dependabot PRs for golang.org updates
+      -
+        name: Auto-merge dependabot PRs for golang.org updates
         if: ${{ contains(steps.metadata.outputs.dependency-group, 'golang-org-dependencies') }}
         run: |
           set +e  # Don't exit on error
@@ -115,21 +120,25 @@ jobs:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
-    if: ${{ inputs.enable-organization-bot == 'true' && github.event.pull_request.user.login == inputs.organization-bot }}
+    if: ${{ inputs.enable-organization-bot == 'true' && github.event.pull_request.user.login == inputs.organization-bot && github.event.pull_request.html_url != '' }}
     env:
       PR_URL: ${{ github.event.pull_request.html_url }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Checkout repository
+      -
+        name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Auto-approve all bot-go-openapi PRs
+      -
+        name: Auto-approve all bot-go-openapi PRs
         run: gh pr review --approve "$PR_URL"
-      - name: Wait for all workflow runs to complete
+      -
+        name: Wait for all workflow runs to complete
         uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@f7ed44020a2682556ac42fa9c210142495270354 # v1.4.5
         with:
           pr-url: ${{ env.PR_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Auto-merge bot-go-openapi PRs
+      -
+        name: Auto-merge bot-go-openapi PRs
         run: |
           set +e  # Don't exit on error
           OUTPUT=$(gh pr merge --auto --rebase "$PR_URL" 2>&1)
