@@ -21,6 +21,12 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
       -
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        with:
+          go-version: stable
+          check-latest: true
+          cache: true
+      -
         name: Download coverage artifacts
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
@@ -28,6 +34,19 @@ jobs:
           pattern: "*.coverage.*"
           # artifacts resolve as folders
           path: coverage/
+      -
+        name: Reprocess coverage paths
+        # on projects with a v2 suffix, the go import path reported by coverage doesn't match
+        # well the actual path. codecov knows about that for the root module, but is unable
+        # to find its way with versioned go sub-modules.
+        # We rewrite paths in coverage paths to match actual repo folders.
+        run: |
+          go list -m -f '{"name":{{ printf "%q" .Path }},"path":{{ printf "%q" .Dir }}}'|\
+          jq -r '[.name,.path] | @tsv' |\
+          while IFS=$'\t' read -r name path ; do
+            target="github.com/${GITHUB_REPOSITORY}/${path#${GITHUB_WORKSPACE}/}"
+            sed -i "s|${name}|${target}|" $(find coverage -type f -name \*.coverage.\*.out)
+          done
       -
         name: Upload coverage to codecov
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
