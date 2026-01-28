@@ -65,14 +65,14 @@ jobs:
         name: Prepare tests
         id: prepare-tests
         run: |
-          coverpkg=$(echo "${{ steps.detect-monorepo.ouputs.names }}" | jq -rc  '.[]|.+"/..."'|tr '\n' ','|head -c -1)
+          coverpkg=$(echo "${{ steps.detect-monorepo.outputs.names }}" | jq -rc  '.[]|.+"/..."'|tr '\n' ','|head -c -1)
           echo "coverpkg=${coverpkg}" >> "${GITHUB_OUTPUT}"
-          echo "::notice:title=coverpkg::${coverpkg}"
+          echo "::notice::title=coverpkg::${coverpkg}"
 
           declare -a ALL_MODULES
           ALL_MODULES=(${{ steps.detect-monorepo.outputs.bash-subpaths }}) # a bash array with all module folders, suffixed with "/..."
           echo "all-modules=${ALL_MODULES[@]}" >> "${GITHUB_OUTPUT}"
-          echo "::notice title=Modules found::${ALL_MODULES[@]}"
+          echo "::notice::title=Modules found::${ALL_MODULES[@]}"
 
       # Carry out the linting the traditional way, within a shell loop
       #-
