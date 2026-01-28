@@ -161,6 +161,7 @@ jobs:
           }}
         env:
           EXTRA_FLAGS: ${{ inputs.extra-flags }}
+          ALL_MODULES: ${{ needs.lint.outputs.all-modules }}
         run: >
           gotestsum
           --jsonfile 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json'
@@ -172,7 +173,7 @@ jobs:
           -coverprofile='unit.coverage.${{ matrix.os }}-${{ matrix.go }}.out'
           -covermode=atomic
           -coverpkg='${{ needs.lint.outputs.coverpkg }}' ${EXTRA_FLAGS}
-          '${{ needs.lint.outputs.all-modules }}'
+          ${ALL_MODULES}
       -
         name: Run unit tests
         if: ${{ needs.lint.outputs.is-monorepo != 'true' }}
