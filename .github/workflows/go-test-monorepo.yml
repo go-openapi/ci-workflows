@@ -65,7 +65,7 @@ jobs:
         name: Prepare tests
         id: prepare-tests
         run: |
-          coverpkg=$(echo "${{ steps.detect-monorepo.outputs.names }}" | jq -rc  '.[]|.+"/..."'|tr '\n' ','|head -c -1)
+          coverpkg=$(echo '${{ steps.detect-monorepo.outputs.names }}' | jq -rc  '.[]|.+"/..."'|tr '\n' ','|head -c -1)
           echo "coverpkg=${coverpkg}" >> "${GITHUB_OUTPUT}"
           echo "::notice::title=coverpkg::${coverpkg}"
 
