@@ -45,7 +45,7 @@ jobs:
           jq -r '[.name,.path] | @tsv' |\
           while IFS=$'\t' read -r name path ; do
             target="github.com/${GITHUB_REPOSITORY}/${path#${GITHUB_WORKSPACE}/}"
-            sed -i "s|${name}|${target}|" $(find coverage -name \*.coverage.\*)
+            sed -i "s|${name}|${target}|" $(find coverage -type f -name \*.coverage.\*.out)
           done
       -
         name: Upload coverage to codecov
