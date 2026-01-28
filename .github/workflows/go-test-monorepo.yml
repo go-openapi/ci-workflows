@@ -25,6 +25,8 @@ jobs:
       bash-paths: ${{ steps.detect-monorepo.outputs.bash-paths }}
       bash-subpaths: ${{ steps.detect-monorepo.outputs.bash-subpaths }}
       module-names: ${{ steps.detect-monorepo.outputs.names }}
+      coverpkg: ${{ steps.prepare-tests.outputs.coverpkg }}
+      all-modules: ${{ steps.prepare-tests.outputs.all-modules }}
     steps:
       -
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -59,6 +61,18 @@ jobs:
           version: latest
           only-new-issues: true
           skip-cache: true
+      -
+        name: Prepare tests
+        id: prepare-tests
+        run: |
+          coverpkg=$(echo '${{ steps.detect-monorepo.outputs.names }}' | jq -rc  '.[]|.+"/..."'|tr '\n' ','|head -c -1)
+          echo "coverpkg=${coverpkg}" >> "${GITHUB_OUTPUT}"
+          echo "::notice::title=coverpkg::${coverpkg}"
+
+          declare -a ALL_MODULES
+          ALL_MODULES=(${{ steps.detect-monorepo.outputs.bash-subpaths }}) # a bash array with all module folders, suffixed with "/..."
+          echo "all-modules=${ALL_MODULES[@]}" >> "${GITHUB_OUTPUT}"
+          echo "::notice::title=Modules found::${ALL_MODULES[@]}"
 
       # Carry out the linting the traditional way, within a shell loop
       #-
@@ -105,6 +119,7 @@ jobs:
         name: Ensure TMP is created on windows runners
         # On windows, some tests require testing.TempDir to reside on the same drive as the code.
         # TMP is used by os.TempDir() to determine the location of temporary files.
+        # This is in particular the case for all programs that use [filepath.Rel].
         if: ${{ runner.os  == 'Windows' }}
         shell: bash
         run: |
@@ -117,12 +132,15 @@ jobs:
         # with go.work file enabled, go test recognizes sub-modules and collects all packages to be covered
         # without specifying -coverpkg.
         #
+        # However, cross-module test coverage is only reported with the appropriate -coverpkg setting.
+        #
         # This requires:
         # * go.work properly initialized with use of all known modules
         # * go.work committed to git
         env:
           EXTRA_FLAGS: ${{ inputs.extra-flags }}
         run: >
+
           gotestsum
           --jsonfile 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json'
           --
@@ -133,7 +151,7 @@ jobs:
           -timeout=20m
           -coverprofile='unit.coverage.${{ matrix.os }}-${{ matrix.go }}.out'
           -covermode=atomic
-          -coverpkg="$(go list)"/... ${EXTRA_FLAGS}
+          -coverpkg='${{ needs.lint.outputs.coverpkg }}' ${EXTRA_FLAGS}
           ./...
       - 
         name: Run unit tests on all modules (<go1.25 or no go.work) [monorepo]
@@ -143,22 +161,19 @@ jobs:
           }}
         env:
           EXTRA_FLAGS: ${{ inputs.extra-flags }}
-        run: |
-          declare -a ALL_MODULES
-          ALL_MODULES=(${{ needs.lint.outputs.bash-subpaths }}) # a bash array with all module folders, suffixed with "/..."
-          echo "::notice title=Modules found::${ALL_MODULES[@]}"
-
-          gotestsum \
-            --jsonfile 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json' \
-            -- \
-            -race \
-            -p 2 \
-            -count 1 \
-            -timeout=20m \
-            -coverprofile='unit.coverage.${{ matrix.os }}-${{ matrix.go }}.out' \
-            -covermode=atomic \
-            -coverpkg="$(go list)"/... ${EXTRA_FLAGS} \
-            ${ALL_MODULES[@]}
+          ALL_MODULES: ${{ needs.lint.outputs.all-modules }}
+        run: >
+          gotestsum
+          --jsonfile 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json'
+          --
+          -race
+          -p 2
+          -count 1
+          -timeout=20m
+          -coverprofile='unit.coverage.${{ matrix.os }}-${{ matrix.go }}.out'
+          -covermode=atomic
+          -coverpkg='${{ needs.lint.outputs.coverpkg }}' ${EXTRA_FLAGS}
+          ${ALL_MODULES}
       -
         name: Run unit tests
         if: ${{ needs.lint.outputs.is-monorepo != 'true' }}
