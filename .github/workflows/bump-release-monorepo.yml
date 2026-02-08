@@ -41,6 +41,14 @@ on:
         required: false
         type: string
         default: 'true'
+      enable-commit-signing:
+        description: |
+          Enable PGP commit-signing by a bot user (for mono-repo releases).
+
+          When enabled, you must pass the GPG secrets to this workflow.
+        required: false
+        type: string
+        default: 'true'
       cliff-config:
         type: string
         required: false
@@ -86,6 +94,22 @@ on:
 
           Required when enable-tag-signing is true.
         required: false
+      github-app-id:
+        description: |
+          GitHub App ID for bot user authentication.
+
+          Default for go-openapi: CI_BOT_APP_ID
+
+          Required to create pull requests as the bot user.
+        required: false
+      github-app-private-key:
+        description: |
+          GitHub App private key in PEM format.
+
+          Default for go-openapi: CI_BOT_APP_PRIVATE_KEY
+
+          Required to create pull requests as the bot user.
+        required: false
 
 jobs:
   detect-modules:
@@ -112,7 +136,7 @@ jobs:
       -
         name: Detect go mono-repo
         id: detect-monorepo
-        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@f7ed44020a2682556ac42fa9c210142495270354 # v1.4.5
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@f94d1f200adab8d24b37584e5f61795a6062421d # v1.4.6
 
   bump-release-single:
     name: Bump release (single module)
@@ -128,7 +152,10 @@ jobs:
       enable-tag-signing: ${{ inputs.enable-tag-signing }}
       cliff-config: ${{ inputs.cliff-config }}
       cliff-config-url: ${{ inputs.cliff-config-url }}
-    secrets: inherit
+    secrets:
+      gpg-private-key: ${{ secrets.gpg-private-key }}
+      gpg-passphrase: ${{ secrets.gpg-passphrase }}
+      gpg-fingerprint: ${{ secrets.gpg-fingerprint }}
 
   determine-next-tag:
     name: Determine next tag [monorepo]
@@ -168,7 +195,7 @@ jobs:
       -
         name: Determine next tag
         id: bump-release
-        uses: go-openapi/gh-actions/ci-jobs/next-tag@f7ed44020a2682556ac42fa9c210142495270354 # v1.4.5
+        uses: go-openapi/gh-actions/ci-jobs/next-tag@f94d1f200adab8d24b37584e5f61795a6062421d # v1.4.6
         with:
           bump-patch: ${{ steps.bump-check.outputs.bump-patch }}
           bump-minor: ${{ steps.bump-check.outputs.bump-minor }}
@@ -184,8 +211,13 @@ jobs:
     uses: ./.github/workflows/prepare-release-monorepo.yml
     with:
       target-tag: ${{ needs.determine-next-tag.outputs.next-tag }}
-      enable-commit-signing: 'true'
-    secrets: inherit
+      enable-commit-signing: ${{ inputs.enable-commit-signing }}
+    secrets:
+      github-app-id: ${{ secrets.github-app-id }}
+      github-app-private-key: ${{ secrets.github-app-private-key }}
+      gpg-private-key: ${{ secrets.gpg-private-key }}
+      gpg-passphrase: ${{ secrets.gpg-passphrase }}
+      gpg-fingerprint: ${{ secrets.gpg-fingerprint }}
 
   wait-for-merge:
     name: Wait for PR merge [monorepo]
@@ -198,11 +230,11 @@ jobs:
     steps:
       -
         name: Checkout repository
-        if: ${{ needs.prepare-modules.outputs.pull-request-operation != 'none' }}  # skip if no pull request to be waited
+        if: ${{ needs.prepare-modules.outputs.pull-request-operation  != 'none' && needs.prepare-modules.outputs.pull-request-operation != 'closed' }}
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       -
         name: Wait for PR to be merged
-        if: ${{ needs.prepare-modules.outputs.pull-request-operation != 'none' }}  # skip if no pull request to be waited
+        if: ${{ needs.prepare-modules.outputs.pull-request-operation  != 'none' && needs.prepare-modules.outputs.pull-request-operation != 'closed' }}
         run: |
           echo "::notice title=waiting-for-merge::Waiting for PR ${PR_URL} to be merged"
 
@@ -232,9 +264,16 @@ jobs:
       -
         name: Report status
         run: |
-          echo "::notice title=waiting-for-merge::Waiting for PR ${PR_URL} to be merged"
+          if [ -z "${PR_URL}" ] ; then
+            echo "::notice title=waiting-for-merge::No PR to be waited for. Proceed."
+          else
+            echo "::notice title=waiting-for-merge::Waiting for PR ${PR_URL} to be merged"
+          fi
+
           if [[ "${{ needs.prepare-modules.outputs.pull-request-operation }}" == "none" ]] ; then
             echo "::notice title=wait-for-pr::no pull request expected. Skipped waiting."
+          elif [[ "${{ needs.prepare-modules.outputs.pull-request-operation }}" == "closed" ]] ; then
+            echo "::notice title=wait-for-pr::pull request closed, assumed merged. Skipped waiting."
           else
             echo "::notice title=wait-for-pr::pull request merged. Can proceed with the tagging and release"
           fi
@@ -268,7 +307,7 @@ jobs:
       -
         name: Configure bot credentials
         if: ${{ inputs.enable-tag-signing == 'true' }}
-        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@f7ed44020a2682556ac42fa9c210142495270354 # v1.4.5
+        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@f94d1f200adab8d24b37584e5f61795a6062421d # v1.4.6
         # This is using the GPG signature of bot-go-openapi.
         #
         # For go-openapi repos (using secrets: inherit):
@@ -302,11 +341,15 @@ jobs:
 
           cd "${root}"
 
-          # Construct the tag message
+          # Construct the tag message.
+          # A blank line between title and body is required for git to
+          # distinguish %(contents:subject) from %(contents:body).
+          # Body lines use "|" as paragraph separator (workflow inputs
+          # do not support multiline strings).
           MESSAGE="${MESSAGE_TITLE}"
           if [[ -n "${MESSAGE_BODY}" ]] ; then
-            BODY=$(echo "${MESSAGE_BODY}"|tr '|' '\n')
-            MESSAGE=$(printf "%s\n%s\n" "${MESSAGE}" "${BODY}")
+            BODY=$(printf '%s' "${MESSAGE_BODY}" | sed 's/|/\n\n/g')
+            MESSAGE=$(printf "%s\n\n%s\n" "${MESSAGE}" "${BODY}")
           fi
 
           echo "::notice title=tag-message::Tagging all modules for ${NEXT_TAG}"
@@ -314,6 +357,10 @@ jobs:
           SIGNED=""
           if [[ '${{ inputs.enable-tag-signing }}' == 'true' ]] ; then
              SIGNED="-s"
+          else
+             # whenever not signed, we need a DCO
+             git config --global user.name "bot-go-openapi"
+             git config --global user.email "gogatekeeper-openapi@yahoo.com"
           fi
 
           # Tag all modules

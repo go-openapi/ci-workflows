@@ -78,7 +78,7 @@ body = """
 ### People who contributed to this release
   {% endif %}
   {%- for contributor in github.contributors | filter(attribute="username") | sort(attribute="username") %}
-    {%- if contributor.username != "dependabot[bot]" and contributor.username != "github-actions[bot]" %}
+    {%- if contributor.username != "dependabot[bot]" and contributor.username != "github-actions[bot]" and contributor.username != "bot-go-openapi[bot]" %}
 * [@{{ contributor.username }}](https://github.com/{{ contributor.username }})
     {%- endif %}
   {%- endfor %}
@@ -91,7 +91,7 @@ body = """
   {%- endif %}
 
   {%- for contributor in github.contributors | filter(attribute="is_first_time", value=true) %}
-    {%- if contributor.username != "dependabot[bot]" and contributor.username != "github-actions[bot]" %}
+    {%- if contributor.username != "dependabot[bot]" and contributor.username != "github-actions[bot]" and contributor.username != "bot-go-openapi[bot]" %}
 * @{{ contributor.username }} made their first contribution
       {%- if contributor.pr_number %}
   in [#{{ contributor.pr_number }}]({{ self::remote_url() }}/pull/{{ contributor.pr_number }}) \
@@ -144,22 +144,22 @@ protect_breaking_commits = false
 # Optionally sets the commit's scope and can decide to exclude commits from further processing.
 commit_parsers = [
     { message = "^[Cc]hore\\([Rr]elease\\): prepare for", skip = true },
-    { message = "(^[Mm]erge)|([Mm]erge conflict)", skip = true },
+    { message = "(^[Mm]erge)|([Mm]erge conflict)", group = "<!-- 0B -->Other (technical)" },
     { field = "author.name", pattern = "dependabot*", group = "<!-- 0A -->Updates" },
     { message = "([Ss]ecurity)|([Vv]uln)", group = "<!-- 08 -->Security" },
     { body = "(.*[Ss]ecurity)|([Vv]uln)", group = "<!-- 08 -->Security" },
     { message = "([Cc]hore\\(lint\\))|(style)|(lint)|(codeql)|(golangci)", group = "<!-- 05 -->Code quality" },
-    { message = "(^[Dd]oc)|((?i)readme)|(badge)|(typo)|(documentation)", group = "<!-- 03 -->Documentation" },
+    { message = "(^[Dd]oc)|(README)|(readme)|(badge)|(typo)", group = "<!-- 03 -->Documentation" },
     { message = "(^[Ff]eat)|(^[Ee]nhancement)", group = "<!-- 00 -->Implemented enhancements" },
-    { message = "(^ci)|(\\(ci\\))|(fixup\\s+ci)|(fix\\s+ci)|(license)|(example)", group = "<!-- 07 -->Miscellaneous tasks" },
+    { message = "(^ci)|(\\(ci\\))|(fixup\\s+ci)|(fix\\s+ci)|(\\bCI\\b)|(license)|(example)", group = "<!-- 07 -->Miscellaneous tasks" },
     { message = "^test", group = "<!-- 06 -->Testing" },
     { message = "(^fix)|(panic)", group = "<!-- 01 -->Fixed bugs" },
-    { message = "(^refact)|(rework)", group = "<!-- 02 -->Refactor" },
+    { message = "(refact)|(rework)", group = "<!-- 02 -->Refactor" },
     { message = "(^[Pp]erf)|(performance)", group = "<!-- 04 -->Performance" },
     { message = "(^[Cc]hore)", group = "<!-- 07 -->Miscellaneous tasks" },
     { message = "^[Rr]evert", group = "<!-- 09 -->Reverted changes" },
     { message = "(upgrade.*?go)|(go\\s+version)", group = "<!-- 0A -->Updates" },
-    { message = ".*", group = "<!-- 0B -->Other" },
+    { message = ".*", group = "<!-- 0B -->Other (technical)" },
 ]
 # Exclude commits that are not matched by any commit parser.
 filter_commits = false
