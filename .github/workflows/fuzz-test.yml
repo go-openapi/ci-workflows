@@ -156,8 +156,9 @@ jobs:
         # this corpus to testdata.
         with:
           path: fuzzcase-${{ matrix.test }}.tgz
-          name: '${{ runner.os }}-fuzz-corpus-failure'
+          name: '${{ runner.os }}-fuzz-corpus-failure-${{ github.run_id }}'
           retention-days: 60
+          overwrite: true
       -
         name: Upload current corpus
         # This is the current corpus, it does not contain the latest failed case
@@ -167,6 +168,7 @@ jobs:
           path: ${{ env.CORPUS_DIR }}
           name: '${{ runner.os }}-fuzz-corpus-failure'
           retention-days: 60
+          overwrite: true
       -
         name: Report fuzz corpus cache size
         run: |
