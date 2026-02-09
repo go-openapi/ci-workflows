@@ -166,7 +166,7 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           path: ${{ env.CORPUS_DIR }}
-          name: '${{ runner.os }}-fuzz-corpus-failure'
+          name: '${{ runner.os }}-fuzz-corpus-${{ matrix.test }}'
           retention-days: 60
           overwrite: true
       -
