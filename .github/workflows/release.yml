@@ -64,11 +64,14 @@ jobs:
       -
         name: Extract tag message
         id: get-message
-        # tag message is not retrieved unless we fetch the ref explicitly
+        # The tag message is not retrieved unless we fetch the ref explicitly.
+        # This step actually only requires depth=1, but subsequent steps consume the full history.
+        # We ensure that we get a complete unshallowed history for subsequent steps.
         run: |
           set -x
 
-          git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+          git fetch --unshallow origin 2>/dev/null || true
+          git fetch origin +refs/tags/*:refs/tags/*
           MESSAGE=$(git tag -l '${{ inputs.tag }}' --format='%(contents:subject)
 
           %(contents:body)
@@ -86,7 +89,7 @@ jobs:
         name: Detect go mono-repo
         if: ${{ inputs.is-monorepo == 'true' }}
         id: detect-monorepo
-        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@f7ed44020a2682556ac42fa9c210142495270354 # v1.4.5
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@f94d1f200adab8d24b37584e5f61795a6062421d # v1.4.6
       -
         name: Install git-cliff [monorepo]
         if: ${{ inputs.is-monorepo == 'true' }}
@@ -134,6 +137,7 @@ jobs:
         if: ${{ inputs.is-monorepo == 'true' }}
         id: notes-monorepo
         env:
+          RELEASE_TAG: ${{ inputs.tag }}
           TAG_MESSAGE: ${{ steps.get-message.outputs.message }}
           CLIFF_CONFIG: ${{ inputs.cliff-config }}
           CLIFF_CONFIG_URL: ${{ inputs.cliff-config-url }}
@@ -182,7 +186,7 @@ jobs:
           declare -a ALL_FOLDERS
           mapfile -d' ' -t ALL_FOLDERS < <(printf "%s" "${MODULE_PATHS}")
 
-          # Function to find child modules for exclusion
+          # Function to find child modules for exclusion (paths relative to repo root)
           function other_module_paths() {
             local current_index="$1"
             local current_module_path="$2"
@@ -196,7 +200,8 @@ jobs:
 
               # Check if folder is a child of current module
               if [[ "${folder}" =~ ^"${current_module_path}" ]] ; then
-                result+=("--exclude-path ${folder}")
+                relative_folder="${folder#${root_dir}/}"
+                result+=("--exclude-path ${relative_folder}/**")
               fi
             done
 
@@ -210,51 +215,63 @@ jobs:
 
           # Generate module-specific notes (Part 2)
           for (( i=0; i<${#ALL_RELATIVE_MODULES[@]}; i++ )); do
-            relative_module="${ALL_RELATIVE_MODULES[$i]}"
-            relative_module=$(echo ${relative_module#"github.com/${GITHUB_REPO}/"}|sed -E 's/\/v[0-9]+$//') # in some case, the module is not prefixed by the root module, e.g. "v2" modules.
             folder="${ALL_FOLDERS[$i]}"
+
+            # Derive relative folder path from repo root (filesystem-based, not module-name-based).
+            # This avoids issues when GITHUB_REPO (fork) differs from the go module path (upstream).
+            relative_folder="${folder#${root_dir}/}"
+            if [[ "${relative_folder}" == "${folder}" || -z "${relative_folder}" ]] ; then
+              # Root module is already covered by Part 1 (full changelog)
+              echo "::notice title=module-notes::Skipping root module (covered by full changelog)"
+              continue
+            fi
+
+            module_name="${relative_folder}"
 
             # Build exclusion list for child modules
             excluded=$(other_module_paths "${i}" "${folder}")
 
-            # Determine module name and tag pattern
-            if [[ -z "${relative_module}" || "${relative_module}" == "{root}" ]] ; then
-              # Root module
-              module_name=$(basename "${ROOT_MODULE}")
-              tag_pattern="^${semver_pattern}$"
-            else
-              module_name="${relative_module}"
-              tag_pattern="^${relative_module}/${semver_pattern}$"
-            fi
+            # All modules use the root tag pattern for consistent version range resolution.
+            # Non-root modules use --include-path to scope commits to their directory.
+            # This avoids requiring per-module tags to exist for the previous release.
+            tag_pattern="^${semver_pattern}$"
+            include_path_flag="--include-path ${relative_folder}/**"
 
             echo "::notice title=module-notes::Generating notes for module: ${module_name}"
 
-            # Generate notes for this module
-            pushd "${folder}" >/dev/null
+            # shellcheck disable=SC2086 # we want optional flags to expand
+            # Disable glob expansion so --include-path and --exclude-path
+            # glob patterns (e.g., codegen/**) are passed literally to git-cliff.
+            set -f
+            module_output=$(git-cliff \
+                ${cliff_config_flag} \
+                --body "${body_monorepo_template}" \
+                --tag-pattern "${tag_pattern}" \
+                --tag "${RELEASE_TAG}" \
+                ${include_path_flag} \
+                ${excluded} \
+                --strip all \
+                --latest \
+                --with-tag-message "")
+            set +f
+
+            # Skip modules with no commits in this release
+            if [[ -z "$(echo "${module_output}" | sed '/^[[:space:]]*$/d')" ]] ; then
+              echo "::notice title=module-notes::Skipping module with no commits: ${module_name}"
+              continue
+            fi
 
             notes="${tmp_dir}/notes-$(echo "${module_name}" | tr '/' '-').md"
 
             {
               echo ""
-              echo "## ${module_name}"
+              echo "---"
               echo ""
-              # module-specific notes have their markdown indented one level deeper
-
-              # shellcheck disable=SC2086 # we want optional flags to expand
-              git-cliff \
-                  ${cliff_config_flag} \
-                  --body "${body_monorepo_template}" \
-                  --tag-pattern "${tag_pattern}" \
-                  ${excluded} \
-                  --strip all \
-                  --latest \
-                  --with-tag-message "${TAG_MESSAGE}" \
-                  | sed -E 's/^(#+) /\1# /g'
-
+              echo "## ${module_name} (${RELEASE_TAG#v})"
+              echo ""
+              echo "${module_output}"
               echo ""
             } > "${notes}"
-
-            popd >/dev/null
           done
 
           # Generate full changelog (Part 1)
@@ -272,7 +289,7 @@ jobs:
           {
             echo "${FULL_NOTES}"
             echo ""
-            echo "# Module-specific release notes"
+            echo "# Per-module changes"
             echo ""
             cat "${tmp_dir}"/notes-*.md
           } > "${tmp_dir}/final-notes.md"

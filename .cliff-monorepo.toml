@@ -1,18 +1,3 @@
-{%- if version %}
-## [{{ version | trim_start_matches(pat="v") }}]({{ self::remote_url() }}/tree/{{ version }}) - {{ timestamp | date(format="%Y-%m-%d") }}
-{%- else %}
-## [unreleased]
-{%- endif %}
-{%- if message %}
-  {%- raw %}
-  {% endraw %}
-{{ message }}
-  {%- raw %}
-  {% endraw %}
-{%- endif %}
-
----
-
 {%- for group, commits in commits | group_by(attribute="group") %}
   {%- raw %}
   {% endraw %}
