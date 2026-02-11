@@ -22,7 +22,7 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
     -
       name: Get changed markdown files
-      uses: tj-actions/changed-files@e0021407031f5be11a464abee9a0776171c79891 # v4.7.0
+      uses: tj-actions/changed-files@8cba46e29c11878d930bca7870bb54394d3e8b21 # v4.7.0
       id: changed-markdown-files
       with:
         files: '**/*.md'
