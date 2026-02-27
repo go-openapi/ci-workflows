@@ -33,7 +33,7 @@ jobs:
         with:
           fetch-depth: 0
       -
-        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
           go-version: stable
           check-latest: true
@@ -42,7 +42,7 @@ jobs:
       -
         name: Detect go mono-repo
         id: detect-monorepo
-        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@f94d1f200adab8d24b37584e5f61795a6062421d # v1.4.6
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@23cdaeff454807ac293a6e98cff552a2ea49be63 # v1.4.7
       -
         name: golangci-lint [monorepo]
         # golangci-action v9.1+ has an experimental built-in mono repo detection setup.
@@ -101,7 +101,7 @@ jobs:
       -
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       -
-        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         id: go-setup
         with:
           go-version: '${{ matrix.go }}'
@@ -111,10 +111,10 @@ jobs:
       -
         name: Detect go version capabilities
         id: detect-go-version
-        uses: go-openapi/gh-actions/ci-jobs/detect-go-version@f94d1f200adab8d24b37584e5f61795a6062421d # v1.4.6
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-version@23cdaeff454807ac293a6e98cff552a2ea49be63 # v1.4.7
       -
         name: Install gotestsum
-        uses: go-openapi/gh-actions/install/gotestsum@f94d1f200adab8d24b37584e5f61795a6062421d # v1.4.6
+        uses: go-openapi/gh-actions/install/gotestsum@23cdaeff454807ac293a6e98cff552a2ea49be63 # v1.4.7
       -
         name: Ensure TMP is created on windows runners
         # On windows, some tests require testing.TempDir to reside on the same drive as the code.
@@ -193,7 +193,7 @@ jobs:
           ./...
       -
         name: Upload coverage artifacts
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           # *.coverage.* pattern is automatically detected by codecov
           path: '**/*.coverage.*.out'
@@ -203,7 +203,7 @@ jobs:
         name: Upload test report artifacts
         # upload report even if tests fail. BTW, this is when they are valuable.
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           path: '**/unit.report.*.json'
           name: 'unit.report.${{ matrix.os }}-${{ matrix.go }}'

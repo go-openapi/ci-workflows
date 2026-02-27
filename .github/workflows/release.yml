@@ -55,7 +55,7 @@ jobs:
           ref: ${{ inputs.tag }}
           fetch-tags: true
       -
-        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
           go-version: stable
           check-latest: true
@@ -89,11 +89,11 @@ jobs:
         name: Detect go mono-repo
         if: ${{ inputs.is-monorepo == 'true' }}
         id: detect-monorepo
-        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@f94d1f200adab8d24b37584e5f61795a6062421d # v1.4.6
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@23cdaeff454807ac293a6e98cff552a2ea49be63 # v1.4.7
       -
         name: Install git-cliff [monorepo]
         if: ${{ inputs.is-monorepo == 'true' }}
-        uses: taiki-e/install-action@7f491e26f71f4ec2e6902c7c95c73043f209ab79 # v2.68.9
+        uses: taiki-e/install-action@aba36d755ec7ca22d38b12111787c26115943952 # v2.68.12
         with:
           tool: git-cliff
       -
