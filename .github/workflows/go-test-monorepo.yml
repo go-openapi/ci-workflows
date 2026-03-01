@@ -232,5 +232,5 @@ jobs:
 
   collect-reports:
     needs: [test]
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.test.result != 'skipped' }}
     uses: ./.github/workflows/collect-reports.yml
