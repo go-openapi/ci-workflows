@@ -146,7 +146,7 @@ jobs:
         if: ${{ failure() }}
         run: |
           # Package name needs to be reworked to account for v2 suffixes
-          folder=$(go list -f '{{ printf "%s" .Dir }}' '${{ matrix.package }}'
+          folder=$(go list -f '{{ printf "%s" .Dir }}' '${{ matrix.package }}')
           tar czf "fuzzcase-${{ matrix.test }}.tgz" $(find "${folder}/testdata/fuzz" -type f)
       -
         name: Upload failed cases
