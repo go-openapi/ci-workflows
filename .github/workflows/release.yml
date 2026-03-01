@@ -91,8 +91,7 @@ jobs:
         id: detect-monorepo
         uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@23cdaeff454807ac293a6e98cff552a2ea49be63 # v1.4.7
       -
-        name: Install git-cliff [monorepo]
-        if: ${{ inputs.is-monorepo == 'true' }}
+        name: Install git-cliff
         uses: taiki-e/install-action@aba36d755ec7ca22d38b12111787c26115943952 # v2.68.12
         with:
           tool: git-cliff
@@ -309,38 +308,38 @@ jobs:
 
           echo "::notice title=release-notes::Generated two-part release notes for mono-repo"
       -
-        name: Generate release notes [local config]
-        # this uses git-cliff to generate a release note from the commit history
-        if: ${{ inputs.is-monorepo != 'true' && steps.check-config.outputs.exists == 'true' }}
-        id: notes-local
+        name: Generate release notes
+        if: ${{ inputs.is-monorepo != 'true' }}
+        id: notes
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPO: ${{ github.repository }}
-        uses: orhun/git-cliff-action@c93ef52f3d0ddcdcc9bd5447d98d458a11cd4f72 # v4.7.1
-        with:
-          config: ${{ inputs.cliff-config }}
-          args: >-
-            --latest
-            --with-tag-message '${{ steps.get-message.outputs.message }}'
-      -
-        name: Generate release notes [remote config]
-        # this uses git-cliff action with remote config URL
-        if: ${{ inputs.is-monorepo != 'true' && steps.check-config.outputs.exists == 'false' }}
-        id: notes-remote
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPO: ${{ github.repository }}
-        uses: orhun/git-cliff-action@c93ef52f3d0ddcdcc9bd5447d98d458a11cd4f72 # v4.7.1
-        with:
-          config: ''
-          args: >-
-            --config-url '${{ inputs.cliff-config-url }}'
-            --latest
-            --with-tag-message '${{ steps.get-message.outputs.message }}'
+          TAG_MESSAGE: ${{ steps.get-message.outputs.message }}
+          CONFIG_EXISTS: ${{ steps.check-config.outputs.exists }}
+          CLIFF_CONFIG: ${{ inputs.cliff-config }}
+          CLIFF_CONFIG_URL: ${{ inputs.cliff-config-url }}
+        run: |
+          if [[ "${CONFIG_EXISTS}" == "true" ]] ; then
+            cliff_config_flag="--config ${CLIFF_CONFIG}"
+          else
+            cliff_config_flag="--config-url ${CLIFF_CONFIG_URL}"
+          fi
+
+          # shellcheck disable=SC2086 # we want the config flag to expand
+          NOTES=$(git-cliff \
+              ${cliff_config_flag} \
+              --latest \
+              --with-tag-message "${TAG_MESSAGE}")
+
+          {
+            echo "content<<EOF"
+            echo "${NOTES}"
+            echo 'EOF'
+          } >> "${GITHUB_OUTPUT}"
       -
         name: Create github release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
-          body: ${{ inputs.is-monorepo == 'true' && steps.notes-monorepo.outputs.content || (steps.check-config.outputs.exists == 'true' && steps.notes-local.outputs.content || steps.notes-remote.outputs.content) }}
+          body: ${{ inputs.is-monorepo == 'true' && steps.notes-monorepo.outputs.content || steps.notes.outputs.content }}
           tag_name: ${{ inputs.tag }}
           generate_release_notes: false # skip auto-generated release notes from github API
