@@ -75,10 +75,48 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
           LINK_TO_PROFILE: "True"
-      - name: Rename contributor file
+          OUTPUT_FILENAME: "CONTRIBUTORS.md"
+      - name: Relint contributor file
+        # This wraps naked markdown links by the more correct "<...>" form.
         run: |
           rm -rf contributors.json
-          mv contributors.md CONTRIBUTORS.md
+          sed -i -E 's/([[:space:]]+)(https:\/\/[^ ]+)/\1<\2>/' CONTRIBUTORS.md
+      - name: Propagate to other contributors documentation
+        if: ${{ hashFiles('docs/**/CONTRIBUTORS.md') != '' }}
+        run: |
+          # extract the body of updated contributors from ./CONTRIBUTORS.md
+          body=$(awk '
+            BEGIN { found = 0; skip_blank = 0 }
+            !found && /^# / { found = 1; skip_blank = 1; next }
+            found && skip_blank && /^$/ { skip_blank = 0; next }
+            found { skip_blank = 0; print }
+          ' "./CONTRIBUTORS.md")
+
+          mapfile -d '' -t files < <(find docs -type f -name CONTRIBUTORS.md -print0)
+          for file in "${files[@]}"; do
+            # extract the frontmatter and other leading notes from the document before appending updated contributions.
+            header=$(awk '
+              BEGIN { found_heading = 0; in_body = 0 }
+              /^## / { found_heading = 1; print; next }
+              found_heading && !in_body {
+                # Blank line right after heading: print it and start looking at body
+                if (/^$/) { print; in_body = 1; next }
+                # Non-blank line right after heading: still part of heading block
+                print; next
+              }
+              in_body {
+                # First blank line after body paragraph: stop
+                if (/^$/) exit
+                print; next
+              }
+              { print }
+            ' "${file}")
+            {
+              echo "${header}"
+              echo ""
+              echo "${body}"
+            } > "${file}"
+          done
       - name: Configure bot credentials
         uses: go-openapi/gh-actions/ci-jobs/bot-credentials@23cdaeff454807ac293a6e98cff552a2ea49be63 # v1.4.7
         id: bot-credentials
