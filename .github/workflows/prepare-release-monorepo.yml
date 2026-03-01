@@ -148,6 +148,9 @@ jobs:
             #
             # In some situations, we may have a test dependency of a module on itself and this
             # case must be skipped.
+            #
+            # Caveat: if the module's author forgot to put a proper release (e.g. use pseudo-commit instead of
+            # proper vx.y.z require), this rewrite will be omitted. For now, this edge case is simply ignored.
             current_module=$(go list)
             while read -r module ; do
               echo "::notice title=updating-dependency::Updating ${module} to ${TARGET_TAG}"
