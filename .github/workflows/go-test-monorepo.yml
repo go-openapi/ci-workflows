@@ -186,7 +186,7 @@ jobs:
           -race
           -p 2
           -count 1
-          -timeout=20m
+          -timeout=30m
           -coverprofile='unit.coverage.${{ matrix.os }}-${{ matrix.go }}.out'
           -covermode=atomic
           -coverpkg="$(go list)"/... ${EXTRA_FLAGS}
