@@ -44,11 +44,30 @@ jobs:
         id: metadata
         uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2.5.0
       -
+        name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      -
+        name: Check go directive unchanged
+        id: go-directive
+        run: |
+          changed=false
+          for gomod in $(find . -name go.mod -not -path '*/vendor/*'); do
+            head_go=$(grep '^go ' "$gomod" | awk '{print $2}')
+            base_go=$(git show "origin/${{ github.event.pull_request.base.ref }}:$gomod" 2>/dev/null | grep '^go ' | awk '{print $2}' || echo "")
+            if [ -n "$base_go" ] && [ "$head_go" != "$base_go" ]; then
+              echo "::warning title=go-directive::${gomod}: go directive changed from ${base_go} to ${head_go} — skipping auto-merge"
+              changed=true
+            fi
+          done
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+      -
         name: Auto-approve all dependabot PRs
         run: gh pr review --approve "$PR_URL"
       -
         name: Auto-merge dependabot PRs for development dependencies
-        if: ${{ contains(steps.metadata.outputs.dependency-group, 'development-dependencies') }}
+        if: ${{ contains(steps.metadata.outputs.dependency-group, 'development-dependencies') && steps.go-directive.outputs.changed != 'true' }}
         run: |
           set +e  # Don't exit on error
           OUTPUT=$(gh pr merge --auto --rebase "$PR_URL" 2>&1)
@@ -70,7 +89,7 @@ jobs:
           exit $EXIT_CODE
       -
         name: Auto-merge dependabot PRs for go-openapi patches
-        if: ${{ contains(steps.metadata.outputs.dependency-group, 'go-openapi-dependencies') && (steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch') }}
+        if: ${{ contains(steps.metadata.outputs.dependency-group, 'go-openapi-dependencies') && (steps.metadata.outputs.update-type == 'version-update:semver-minor' || steps.metadata.outputs.update-type == 'version-update:semver-patch') && steps.go-directive.outputs.changed != 'true' }}
         run: |
           set +e  # Don't exit on error
           gh pr merge --auto --rebase "$PR_URL"
@@ -90,7 +109,7 @@ jobs:
           exit $EXIT_CODE
       -
         name: Auto-merge dependabot PRs for golang.org updates
-        if: ${{ contains(steps.metadata.outputs.dependency-group, 'golang-org-dependencies') }}
+        if: ${{ contains(steps.metadata.outputs.dependency-group, 'golang-org-dependencies') && steps.go-directive.outputs.changed != 'true' }}
         run: |
           set +e  # Don't exit on error
           OUTPUT=$(gh pr merge --auto --rebase "$PR_URL" 2>&1)
