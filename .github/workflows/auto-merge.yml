@@ -152,7 +152,7 @@ jobs:
         run: gh pr review --approve "$PR_URL"
       -
         name: Wait for all workflow runs to complete
-        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@23cdaeff454807ac293a6e98cff552a2ea49be63 # v1.4.7
+        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@ec7fc0008806cbf69bffc34da17d9f2ddb2cd9f5 # v1.4.8
         with:
           pr-url: ${{ env.PR_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
