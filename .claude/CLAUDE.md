@@ -6,17 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This repository provides shared, reusable GitHub Actions workflows for the go-openapi organization. The workflows are designed to be called from other go-openapi repositories to standardize CI/CD processes across the entire project family.
 
-## GitHub Actions Skills
-       
-**IMPORTANT**: When working with GitHub Actions workflows in this repository, refer to the comprehensive GitHub Actions skill:
-         
-📖 **See `.claude/skills/github-actions.md`** for:
-- Code style and formatting requirements (expression spacing, workflow commands)
-- Security best practices (avoiding `secrets[inputs.name]` vulnerability)
-- Race condition handling patterns (optimistic execution with error handling)
-- Common workflow patterns (bot-credentials, wait-pending-jobs, auto-merge)
-- Action definition best practices
-- Documentation standards
+## GitHub Actions Guidelines
+
+When working with GitHub Actions workflows in this repository, refer to:
+
+📖 **`.claude/rules/github-workflows-conventions.md`** (auto-loaded for workflow files):
+- YAML formatting and style conventions (expression spacing, step arrays, conditionals)
+- Security rules (SHA pinning, permissions, secret exposure)
+- Common gotchas (boolean inputs, description fields)
+
+📖 **`.claude/skills/github-actions.md`** for:
+- Behavioral patterns (race condition handling, optimistic execution)
+- Workflow recipes (bot-credentials, wait-pending-jobs, auto-merge)
+- Action definition best practices and documentation standards
 
 When proposing new reusable actions, always create them in `go-openapi/gh-actions` (not in this repo).
 
