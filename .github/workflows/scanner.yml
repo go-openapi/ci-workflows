@@ -38,14 +38,14 @@ jobs:
           cache: true
       -
         name: Vulnerability scan by trivy
-        uses: aquasecurity/trivy-action@97e0b3872f55f89b95b2f65b3dbab56962816478 # v0.34.2
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
         with:
           scan-type: repo
           format: sarif
           hide-progress: false
           output: trivy-code-report.sarif
           scanners: vuln,secret
-          version: v0.68.1
+          version: v0.69.3
           exit-code: 0
       -
         name: Upload trivy findings to code scanning dashboard
