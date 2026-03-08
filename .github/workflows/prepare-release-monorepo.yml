@@ -115,7 +115,7 @@ jobs:
           MODULE_PATHS: ${{ steps.detect-monorepo.outputs.bash-paths }}
         run: |
           set -x
-          unset GOTOOLCHAIN
+          unset GOTOOLCHAIN # unset presets
 
           # Update go.mod files in all modules to reference the new version
           root="$(git rev-parse --show-toplevel)"
@@ -139,6 +139,10 @@ jobs:
 
             echo "Original go.mod"
             cat go.mod
+
+            requiredVersion=$(go mod edit -json |jq -r '.Go')
+            export GOTOOLCHAIN="go${requiredVersion}"
+            echo "::notice title=prepare-release::Detected go version requirement ${requiredVersion}"
 
             # Make sure we can get all dependencies
             go mod download
