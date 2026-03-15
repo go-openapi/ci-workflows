@@ -17,3 +17,10 @@ When editing workflow files, follow the conventions documented in `.github/copil
 - **Shared workflows** (`.github/workflows/*.yml`): called by other go-openapi repos
 - **Local test workflows** (`local-*.yml`): test the shared workflows within this repo
 - New reusable actions belong in `go-openapi/gh-actions`, not here
+
+## Contributions
+
+- Every commit must be DCO signed-off (`git commit -s`)
+- Agents may be co-authors but the commit author must be a human
+- PRs must clearly describe the problem and include tests
+- Run `golangci-lint run --new-from-rev master` before pushing

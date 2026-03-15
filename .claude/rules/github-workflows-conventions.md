@@ -265,3 +265,33 @@ description: |
    **Rule**: Use `type: string` with values `'true'` or `'false'` for all boolean-like workflow inputs.
 
    **Note**: Step outputs and bash variables are always strings, so `x == 'true'` works fine for those.
+
+### YAML fold scalars in action inputs
+
+**NEVER** use `>` or `>-` (fold scalars) for `with:` input values:
+
+> The YAML spec says fold scalars replace newlines with spaces, but the GitHub Actions runner
+> does not reliably honor this for action inputs. The action receives the literal multi-line string
+> instead of a single folded line, which breaks flag parsing.
+
+```yaml
+# ❌ BROKEN - Fold scalar, args received with embedded newlines
+- uses: goreleaser/goreleaser-action@...
+  with:
+    args: >-
+      release
+        --clean
+        --release-notes /tmp/notes.md
+
+# ✅ CORRECT - Single line
+- uses: goreleaser/goreleaser-action@...
+  with:
+    args: release --clean --release-notes /tmp/notes.md
+
+# ✅ CORRECT - Literal block scalar (|) is fine for run: scripts
+- run: |
+    echo "line 1"
+    echo "line 2"
+```
+
+**Rule**: Use single-line strings for `with:` inputs. Only use `|` (literal block scalar) for `run:` scripts where multi-line is intentional.
