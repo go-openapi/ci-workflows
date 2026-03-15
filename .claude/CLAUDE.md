@@ -10,12 +10,12 @@ This repository provides shared, reusable GitHub Actions workflows for the go-op
 
 When working with GitHub Actions workflows in this repository, refer to:
 
-📖 **`.claude/rules/github-workflows-conventions.md`** (auto-loaded for workflow files):
+**`.claude/rules/github-workflows-conventions.md`** (auto-loaded for workflow files):
 - YAML formatting and style conventions (expression spacing, step arrays, conditionals)
 - Security rules (SHA pinning, permissions, secret exposure)
 - Common gotchas (boolean inputs, description fields)
 
-📖 **`.claude/skills/github-actions.md`** for:
+**`.claude/skills/github-actions.md`** for:
 - Behavioral patterns (race condition handling, optimistic execution)
 - Workflow recipes (bot-credentials, wait-pending-jobs, auto-merge)
 - Action definition best practices and documentation standards
@@ -137,11 +137,12 @@ The `auto-merge.yml` workflow handles two bot types:
 - `.golangci.yml` - Linter configuration (many linters disabled to match go-openapi style)
 - `.cliff.toml` - Release notes generation configuration
 - `.github/dependabot.yaml` - Dependency update configuration
+- `go.work` - Go workspace tying root and `sample-monorepo` modules together
 - `go.mod` - Requires Go 1.24.0
 
 ## Important Notes
 
 - All workflow action versions are pinned to commit SHAs for security
 - Permissions are explicitly granted at job level to follow least-privilege principle
-- This repo itself uses minimal Go code (just sample tests); it's primarily YAML workflows
+- This repo is a mono-repo (`go.work`) with a `sample-monorepo` submodule used to exercise the CI workflows against a multi-module layout; it's primarily YAML workflows
 - The `local-*` workflows serve as both tests and documentation of proper usage
