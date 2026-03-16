@@ -70,7 +70,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Identify all-time contributors to this repository
-        uses: github/contributors@d699725600f8a639710957615aedd7f5368b6cba # v2.0.3
+        uses: github/contributors@08ba1193dde975b1e1e5b0a4de4d4576be865c5c # v2.0.4
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
@@ -118,7 +118,7 @@ jobs:
             } > "${file}"
           done
       - name: Configure bot credentials
-        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@11145fb6068468e0aa20a7b12552be02119605a0 # v1.4.9
+        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@44562130489de2516b3fde3ff1b426090a19d857 # v1.4.10
         id: bot-credentials
         # For go-openapi repos (using secrets: inherit):
         #   Falls back to: CI_BOT_APP_ID, CI_BOT_APP_PRIVATE_KEY, CI_BOT_GPG_PRIVATE_KEY, etc.
@@ -183,7 +183,7 @@ jobs:
       - name: Auto-approve PR
         run: gh pr review --approve "$PR_URL"
       - name: Wait for all workflow runs to complete
-        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@11145fb6068468e0aa20a7b12552be02119605a0 # v1.4.9
+        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@44562130489de2516b3fde3ff1b426090a19d857 # v1.4.10
         with:
           pr-url: ${{ env.PR_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
