@@ -11,6 +11,18 @@ on:
         description: extra flags to add to go test
         type: string
         required: false
+      matrix:
+        description: |
+          Optional JSON string to define the test matrix, using keys: "os" and "go".
+
+          By default tests run a 6-way matrix running on os (linux,windows,macos)
+          for the 2 latest go releases (stable, oldstable).
+
+          The default matrix used is:
+          {"os":["ubuntu-latest","macos-latest","windows-latest"],"go": ["oldstable","stable"]}
+
+        type: string
+        required: false
 
 defaults:
   run:
@@ -27,6 +39,7 @@ jobs:
       module-names: ${{ steps.detect-monorepo.outputs.names }}
       coverpkg: ${{ steps.prepare-tests.outputs.coverpkg }}
       all-modules: ${{ steps.prepare-tests.outputs.all-modules }}
+      test-matrix: ${{ steps.test-matrix.outputs.test-matrix }}
     steps:
       -
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -88,15 +101,23 @@ jobs:
       #      golangci-lint run --new-from-rev origin/master
       #      popd
       #    done < <(echo ${{ steps.detect-monorepo.outputs.bash-paths }})
+      -
+        name: Test matrix
+        id: test-matrix
+        env:
+          MATRIX: |
+            ${{ inputs.test-matrix || '{"os":["ubuntu-latest","macos-latest","windows-latest"],"go": ["oldstable","stable"]}' }}
+        run: |
+          echo "test-matrix<<EOF" >> "${GITHUB_OUTPUT}"
+          printenv MATRIX >> "${GITHUB_OUTPUT}"
+          echo "EOF" >> "${GITHUB_OUTPUT}"
 
   test:
     name: Unit tests mono-repo
     needs: [ lint ]
     runs-on: ${{ matrix.os }}
     strategy:
-      matrix:
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
-        go: ['oldstable', 'stable' ]
+      matrix: ${{ fromJSON(needs.lint.outputs.test-matrix) }}
     steps:
       -
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
