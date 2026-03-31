@@ -55,7 +55,7 @@ jobs:
           ref: ${{ inputs.tag }}
           fetch-tags: true
       -
-        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
         with:
           go-version: stable
           check-latest: true
@@ -92,7 +92,7 @@ jobs:
         uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@22f6d5e0e1d13b8e835ea0ffe69ed5589f7cc354 # v1.4.11
       -
         name: Install git-cliff
-        uses: taiki-e/install-action@e9e8e031bcd90cdbe8ac6bb1d376f8596e587fbf # v2.70.2
+        uses: taiki-e/install-action@6ef672efc2b5aabc787a9e94baf4989aa02a97df # v2.70.3
         with:
           tool: git-cliff
       -
