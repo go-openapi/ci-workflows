@@ -18,22 +18,26 @@ Common Continuous Integration (`CI`) workflows and setup for go-openapi repos.
 * shared `dependabot` configuration (**BLOCKED**)
 * shared `golangci-lint` configuration (**BLOCKED**)
 
+<!--
 ## Announcements
-
-* **2025-12-19** : new community chat on discord
-  * a new discord community channel is available to be notified of changes and support users
-  * our venerable Slack channel remains open, and will be eventually discontinued on **2026-03-31**
-
-You may join the discord community by clicking the invite link on the discord badge (also above). [![Discord Channel][discord-badge]][discord-url]
-
-Or join our Slack channel: [![Slack Channel][slack-logo]![slack-badge]][slack-url]
+-->
 
 ## Status
 
-Development is active. We are regularly adding more shared workflows to standardize CI across go-openapi repos.
+Active development.
+
+We are regularly adding more shared workflows to standardize CI across go-openapi repos.
 
 > NOTE: at this moment, it is difficult to share the configurations for dependabot and golangci-lint,
 > so these are not shared yet.
+
+## Content
+
+This repository essentially contains github action workflows in `.github/workflows`.
+
+`go` code in this repo is provided only for the purpose of testing these workflows.
+
+Workflows contents are detailed [here][.github/workflows/README.md].
 
 ## Example
 
@@ -101,7 +105,7 @@ jobs:
     secrets: inherit
 ```
 
-## Available workflows `[v0.1.0]`
+## Available workflows `[v0.2.16]`
 
 ### Dependencies automation
 
@@ -164,9 +168,9 @@ This content ships under the [SPDX-License-Identifier: Apache-2.0](./LICENSE).
 ## Other documentation
 
 * [All-time contributors](./CONTRIBUTORS.md)
-* [Contributing guidelines](.github/CONTRIBUTING.md)
-* [Maintainers documentation](docs/MAINTAINERS.md)
-* [Code style](docs/STYLE.md)
+* [Contributing guidelines][contributing-doc-site]
+* [Maintainers documentation][maintainers-doc-site]
+* [Code style][style-doc-site]
 * [Roadmap](docs/ROADMAP.md)
 
 ## Cutting a new release
@@ -215,3 +219,7 @@ Maintainers can cut a new release by either:
 [goversion-url]: https://github.com/go-openapi/ci-workflows/blob/master/go.mod
 [top-badge]: https://img.shields.io/github/languages/top/go-openapi/ci-workflows
 [commits-badge]: https://img.shields.io/github/commits-since/go-openapi/ci-workflows/latest
+<!-- Organization docs -->
+[contributing-doc-site]: https://go-openapi.github.io/doc-site/contributing/contributing/index.html
+[maintainers-doc-site]: https://go-openapi.github.io/doc-site/maintainers/index.html
+[style-doc-site]: https://go-openapi.github.io/doc-site/contributing/style/index.html
