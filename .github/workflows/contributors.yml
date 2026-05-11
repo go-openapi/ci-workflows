@@ -70,7 +70,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Identify all-time contributors to this repository
-        uses: github/contributors@1878140f3a38f939c76bcf4af402be1af67b5e94 # v2.0.10
+        uses: github/contributors@b859081429c8fa345253bdc53f4ccd94ab43cab7 # v2.0.11
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
