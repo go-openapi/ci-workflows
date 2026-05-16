@@ -55,7 +55,7 @@ jobs:
       -
         name: Detect go mono-repo
         id: detect-monorepo
-        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@21fde93224f7f4c39a622fbe7eb50e4a620eb899 # v1.14.12
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@70c5bbea429a7d10a082ac9efb83036da0c5b7d0 # v1.4.14
       -
         name: golangci-lint [monorepo]
         # golangci-action v9.1+ has an experimental built-in mono repo detection setup.
@@ -132,10 +132,10 @@ jobs:
       -
         name: Detect go version capabilities
         id: detect-go-version
-        uses: go-openapi/gh-actions/ci-jobs/detect-go-version@21fde93224f7f4c39a622fbe7eb50e4a620eb899 # v1.14.12
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-version@70c5bbea429a7d10a082ac9efb83036da0c5b7d0 # v1.4.14
       -
         name: Install gotestsum
-        uses: go-openapi/gh-actions/install/gotestsum@21fde93224f7f4c39a622fbe7eb50e4a620eb899 # v1.14.12
+        uses: go-openapi/gh-actions/install/gotestsum@70c5bbea429a7d10a082ac9efb83036da0c5b7d0 # v1.4.14
       -
         name: Ensure TMP is created on windows runners
         # On windows, some tests require testing.TempDir to reside on the same drive as the code.
