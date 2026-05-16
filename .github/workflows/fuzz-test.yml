@@ -136,7 +136,7 @@ jobs:
         name: Run go fuzz test ${{ matrix.test }}
         run: >
           go test
-          -fuzz=Fuzz
+          -fuzz='${{ matrix.test }}$'
           -run='${{ matrix.test }}$'
           -fuzztime='${{ env.FUZZ_TIME }}'
           -fuzzminimizetime='${{ env.FUZZ_MINIMIZE_TIME }}'
