@@ -1,0 +1,148 @@
+name: Monitor bot PRs
+
+on:
+  workflow_call:
+    inputs:
+      enable-organization-bot:
+        description: |
+          Enable detection and rebase of stalled PRs initiated by the organization bot.
+
+        type: string
+        required: false
+        default: "true"
+      organization-bot:
+        description: |
+          The bot user that opens pull requests on behalf of the organization,
+          whose stalled PRs should be rebased automatically.
+
+          Example: bot-go-openapi[bot]
+
+        type: string
+        required: false
+        default: "bot-go-openapi[bot]"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  dependabot-prs:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+    steps:
+      -
+        name: Request a rebase on stalled dependabot PRs
+        # A stalled PR is one that should have auto-merged but did not, because
+        # its branch fell behind the base ref. We detect it when all of:
+        #   * the PR is open and authored by the dependabot bot,
+        #   * auto-merge is enabled (autoMergeRequest is not null) -- this
+        #     excludes dependency groups that are deliberately not auto-merged,
+        #   * it has not been updated for at least one day,
+        #   * its merge state is BEHIND (head ref needs to catch up to base),
+        #   * no CI check has failed.
+        # GitHub never rebases dependabot branches by itself, so we comment
+        # "@dependabot rebase". Dependabot rebases the branch, CI restarts and
+        # auto-merge is evaluated again.
+        run: |
+          cutoff="$(date -u -d '1 day ago' +%Y-%m-%dT%H:%M:%SZ)"
+          echo "::notice title=monitor::Looking for stalled dependabot PRs not updated since ${cutoff}"
+
+          mapfile -t urls < <(
+            gh pr list --repo "${REPO}" \
+              --state open --limit 10 \
+              --author 'dependabot[bot]' \
+              --json url,author,autoMergeRequest,mergeStateStatus,updatedAt,statusCheckRollup \
+            | jq -r --arg cutoff "${cutoff}" '
+                .[]
+                | select(.author.is_bot)
+                | select(.autoMergeRequest != null)
+                | select(.updatedAt <= $cutoff)
+                | select(.mergeStateStatus == "BEHIND")
+                | select(
+                    [.statusCheckRollup[]? | (.conclusion // .state // "")]
+                    | map(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "CANCELLED" or . == "ACTION_REQUIRED" or . == "STARTUP_FAILURE")
+                    | any
+                    | not
+                  )
+                | .url
+              '
+          )
+
+          if [ "${#urls[@]}" -eq 0 ]; then
+            echo "::notice title=monitor::No stalled dependabot PRs found"
+            exit 0
+          fi
+
+          for pr_url in "${urls[@]}"; do
+            echo "::notice title=rebase::Requesting dependabot rebase for ${pr_url}"
+            gh pr comment "${pr_url}" --body "@dependabot rebase"
+          done
+
+  organization-bot-prs:
+    if: ${{ inputs.enable-organization-bot == 'true' }}
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      ORG_BOT: ${{ inputs.organization-bot }}
+    steps:
+      -
+        name: Rebase the branch of stalled organization bot PRs
+        # Same detection as for dependabot PRs. The organization bot does not
+        # answer rebase comments, so we ask GitHub to update the branch directly
+        # with "gh pr update-branch --rebase". This requires the PR branch to live
+        # in this repository (not a fork). The rebase restarts CI and auto-merge
+        # is evaluated again.
+        run: |
+          cutoff="$(date -u -d '1 day ago' +%Y-%m-%dT%H:%M:%SZ)"
+          echo "::notice title=monitor::Looking for stalled ${ORG_BOT} PRs not updated since ${cutoff}"
+
+          mapfile -t urls < <(
+            gh pr list --repo "${REPO}" \
+              --state open --limit 10 \
+              --author "${ORG_BOT}" \
+              --json url,author,autoMergeRequest,mergeStateStatus,updatedAt,statusCheckRollup \
+            | jq -r --arg cutoff "${cutoff}" '
+                .[]
+                | select(.author.is_bot)
+                | select(.autoMergeRequest != null)
+                | select(.updatedAt <= $cutoff)
+                | select(.mergeStateStatus == "BEHIND")
+                | select(
+                    [.statusCheckRollup[]? | (.conclusion // .state // "")]
+                    | map(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "CANCELLED" or . == "ACTION_REQUIRED" or . == "STARTUP_FAILURE")
+                    | any
+                    | not
+                  )
+                | .url
+              '
+          )
+
+          if [ "${#urls[@]}" -eq 0 ]; then
+            echo "::notice title=monitor::No stalled ${ORG_BOT} PRs found"
+            exit 0
+          fi
+
+          for pr_url in "${urls[@]}"; do
+            echo "::notice title=rebase::Rebasing branch for ${pr_url}"
+            set +e
+            output="$(gh pr update-branch --rebase "${pr_url}" 2>&1)"
+            code=$?
+            set -e
+            if [ "${code}" -ne 0 ]; then
+              echo "::warning title=rebase::Could not rebase ${pr_url}: ${output}"
+              continue
+            fi
+            echo "${output}"
+          done
