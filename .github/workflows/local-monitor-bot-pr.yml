@@ -16,5 +16,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      statuses: read
     uses: ./.github/workflows/monitor-bot-pr.yml
     secrets: inherit
