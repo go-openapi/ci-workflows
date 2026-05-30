@@ -64,7 +64,7 @@ jobs:
                 .[]
                 | select(.author.is_bot)
                 | select(.autoMergeRequest != null)
-                | select(.updatedAt <= $cutoff)
+                | select(.autoMergeRequest.enabledAt <= $cutoff)
                 | select(.mergeStateStatus == "BEHIND")
                 | select(
                     [.statusCheckRollup[]? | (.conclusion // .state // "")]
@@ -117,7 +117,7 @@ jobs:
                 .[]
                 | select(.author.is_bot)
                 | select(.autoMergeRequest != null)
-                | select(.updatedAt <= $cutoff)
+                | select(.autoMergeRequest.enabledAt <= $cutoff)
                 | select(.mergeStateStatus == "BEHIND")
                 | select(
                     [.statusCheckRollup[]? | (.conclusion // .state // "")]
