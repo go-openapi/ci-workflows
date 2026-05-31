@@ -21,25 +21,24 @@ on:
         required: false
         default: "bot-go-openapi[bot]"
     secrets:
-      github-app-id:
+      bot-pat:
         description: |
-          GitHub App ID for bot user authentication.
+          Personal Access Token belonging to a real GitHub user account
+          (not a GitHub App) with push access to the target repository.
 
-          Default for go-openapi: CI_BOT_APP_ID
+          Default for go-openapi: CI_BOT_PAT (PAT of bot-go-openapi user)
 
-          Required: Dependabot ignores rebase comments posted by
-          github-actions[bot] (the GITHUB_TOKEN identity), regardless of
-          granted token permissions. The workflow swaps to a GitHub App
-          installation token whose identity Dependabot accepts as a user
-          with push access.
-        required: false
-      github-app-private-key:
-        description: |
-          GitHub App private key in PEM format.
+          Required: Dependabot rejects rebase commands from any GitHub App
+          identity (user.type == "Bot"), including github-actions[bot] and
+          installation tokens from custom Apps. It only honors commands from
+          real user accounts (user.type == "User") with push access. The
+          workflow swaps GH_TOKEN to this PAT so the "@dependabot rebase"
+          comment is posted under the bot user's account.
 
-          Default for go-openapi: CI_BOT_APP_PRIVATE_KEY
+          Classic PAT scopes: public_repo (or repo for private repos).
+          Fine-grained: Pull requests: Read and write, scoped to target repos.
 
-          Required for the same reason as github-app-id.
+          Reason why we have to resort to PAT when dealing with dependabot: https://github.com/dependabot/dependabot-core/issues/9147
         required: false
 
 permissions:
@@ -57,24 +56,17 @@ jobs:
       statuses: read
     runs-on: ubuntu-latest
     env:
+      # Use the bot user's PAT (not GITHUB_TOKEN) so the rebase comment is
+      # posted under a real user identity. Dependabot rejects commands from
+      # any user.type == "Bot" identity (github-actions[bot], App tokens),
+      # regardless of repo permissions.
+      #
+      # We need to use a PAT since dependabot rejects all requests from bot users, including when using github App auth.
+      GH_TOKEN: ${{ secrets.bot-pat || secrets.CI_BOT_PAT }}
       REPO: ${{ github.repository }}
     steps:
       -
-        name: Configure bot credentials
-        # Dependabot only honors commands posted by users (or apps) with push
-        # access, and it explicitly rejects github-actions[bot]. We mint a
-        # GitHub App installation token so the "@dependabot rebase" comment is
-        # posted under the bot's identity, which Dependabot accepts.
-        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@70c5bbea429a7d10a082ac9efb83036da0c5b7d0 # v1.4.14
-        id: bot-credentials
-        with:
-          enable-github-app: "true"
-          github-app-id: ${{ secrets.github-app-id || secrets.CI_BOT_APP_ID }}
-          github-app-private-key: ${{ secrets.github-app-private-key || secrets.CI_BOT_APP_PRIVATE_KEY }}
-      -
         name: Request a rebase on stalled dependabot PRs
-        env:
-          GH_TOKEN: ${{ steps.bot-credentials.outputs.app-token }}
         # A stalled PR is one that should have auto-merged but did not, because
         # its branch fell behind the base ref. We detect it when all of:
         #   * the PR is open and authored by the dependabot bot,
