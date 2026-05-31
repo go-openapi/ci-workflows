@@ -20,6 +20,27 @@ on:
         type: string
         required: false
         default: "bot-go-openapi[bot]"
+    secrets:
+      github-app-id:
+        description: |
+          GitHub App ID for bot user authentication.
+
+          Default for go-openapi: CI_BOT_APP_ID
+
+          Required: Dependabot ignores rebase comments posted by
+          github-actions[bot] (the GITHUB_TOKEN identity), regardless of
+          granted token permissions. The workflow swaps to a GitHub App
+          installation token whose identity Dependabot accepts as a user
+          with push access.
+        required: false
+      github-app-private-key:
+        description: |
+          GitHub App private key in PEM format.
+
+          Default for go-openapi: CI_BOT_APP_PRIVATE_KEY
+
+          Required for the same reason as github-app-id.
+        required: false
 
 permissions:
   contents: read
@@ -36,11 +57,24 @@ jobs:
       statuses: read
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
     steps:
       -
+        name: Configure bot credentials
+        # Dependabot only honors commands posted by users (or apps) with push
+        # access, and it explicitly rejects github-actions[bot]. We mint a
+        # GitHub App installation token so the "@dependabot rebase" comment is
+        # posted under the bot's identity, which Dependabot accepts.
+        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@70c5bbea429a7d10a082ac9efb83036da0c5b7d0 # v1.4.14
+        id: bot-credentials
+        with:
+          enable-github-app: "true"
+          github-app-id: ${{ secrets.github-app-id || secrets.CI_BOT_APP_ID }}
+          github-app-private-key: ${{ secrets.github-app-private-key || secrets.CI_BOT_APP_PRIVATE_KEY }}
+      -
         name: Request a rebase on stalled dependabot PRs
+        env:
+          GH_TOKEN: ${{ steps.bot-credentials.outputs.app-token }}
         # A stalled PR is one that should have auto-merged but did not, because
         # its branch fell behind the base ref. We detect it when all of:
         #   * the PR is open and authored by the dependabot bot,
