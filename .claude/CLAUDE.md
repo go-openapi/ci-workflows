@@ -20,6 +20,13 @@ When working with GitHub Actions workflows in this repository, refer to:
 - Workflow recipes (bot-credentials, wait-pending-jobs, auto-merge)
 - Action definition best practices and documentation standards
 
+**`.claude/skills/dependabot-automation.md`** for:
+- Dependabot's identity rule (`user.type == "Bot"` rejection) and which
+  identity to use for each kind of automation
+- Patterns for posting `@dependabot` commands, rebasing stalled bot PRs,
+  reading Dependabot PR metadata, auto-merging
+- Anatomy of the dual `bot-go-openapi` identities (App vs. user account)
+
 When proposing new reusable actions, always create them in `go-openapi/gh-actions` (not in this repo).
 
 ## Testing & Development Commands
