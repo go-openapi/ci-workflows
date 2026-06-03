@@ -68,7 +68,7 @@ jobs:
       pull-request-operation: ${{ steps.create-pull-request.outputs.pull-request-operation }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Identify all-time contributors to this repository
         uses: github/contributors@4fda46a62ca1f1f1162c053c11d9576ae0cdda99 # v2.0.15
         env:
@@ -179,7 +179,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Auto-approve PR
         run: gh pr review --approve "$PR_URL"
       - name: Wait for all workflow runs to complete
