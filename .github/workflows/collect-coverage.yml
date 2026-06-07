@@ -1,3 +1,19 @@
+# Security model:
+#   This reusable workflow checks out untrusted PR head code and runs the Go
+#   toolchain against it (go list -m), then processes coverage artifacts whose
+#   contents and file names are produced by that untrusted code.
+#
+#   It is SAFE ONLY when called in-run from a `pull_request` trigger (or a
+#   trusted push), where fork PRs receive no secrets and a read-only token.
+#   NEVER front this workflow with `pull_request_target` or bridge it via
+#   `workflow_run`: that would run attacker-controlled code/artifacts in a
+#   privileged context with secrets and turn the checkout + toolchain step
+#   into remote code execution.
+#
+#   Invariant for the steps below: no value read from a file or artifact is
+#   ever expanded through a `${{ }}` shell sink, and artifact-derived file
+#   names are always passed quoted (never via an unquoted `$(...)`).
+
 name: Collect coverage
 
 permissions:
@@ -70,11 +86,25 @@ jobs:
         # to find its way with versioned go sub-modules.
         # We rewrite paths in coverage paths to match actual repo folders.
         run: |
-          go list -m -f '{"name":{{ printf "%q" .Path }},"path":{{ printf "%q" .Dir }}}'|\
+          # Coverage filenames are derived from (untrusted) fork-produced
+          # artifacts, so collect them NUL-delimited into an array and pass them
+          # to sed quoted. Never use an unquoted $(find ...) here: a hostile file
+          # name would word-split or glob into sed's argv.
+          mapfile -d '' -t cover_files < <(find coverage -type f -name '*.coverage.*.out' -print0)
+          if [[ ${#cover_files[@]} -eq 0 ]]; then
+            echo "::notice title=coverage::no coverage files found to reprocess"
+            exit 0
+          fi
+
+          # name/path are read from the untrusted checked-out go.mod via the go
+          # toolchain. Go module paths are restricted to [A-Za-z0-9-._~/], so they
+          # cannot carry shell or sed metacharacters; we still keep them double
+          # quoted and never route file/artifact data through a ${{ }} sink.
+          go list -m -f '{"name":{{ printf "%q" .Path }},"path":{{ printf "%q" .Dir }}}' |\
           jq -r '[.name,.path] | @tsv' |\
           while IFS=$'\t' read -r name path ; do
             target="github.com/${GITHUB_REPOSITORY}/${path#${GITHUB_WORKSPACE}/}"
-            sed -i "s|${name}|${target}|" $(find coverage -type f -name \*.coverage.\*.out)
+            sed -i "s|${name}|${target}|" "${cover_files[@]}"
           done
       -
         if: ${{ steps.head.outputs.available == 'true' }}

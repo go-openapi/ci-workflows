@@ -1,3 +1,19 @@
+# Security model:
+#   This reusable workflow downloads test-report artifacts whose contents and
+#   file names are produced by untrusted PR code. It treats those artifacts as
+#   data only -- it never checks out or executes PR code.
+#
+#   It is SAFE ONLY when called in-run from a `pull_request` trigger (or a
+#   trusted push), where fork PRs receive no secrets and a read-only token.
+#   NEVER front this workflow with `pull_request_target` or bridge it via
+#   `workflow_run`: that would expose secrets to a run fed by attacker-
+#   controlled artifacts.
+#
+#   Invariant for the steps below: no value read from a file or artifact is
+#   ever expanded through a `${{ }}` shell sink, and artifact-derived file
+#   names are always handled NUL-delimited / quoted (find -print0 | xargs -0,
+#   or read -r with quoted use).
+
 name: Collect test reports
 
 permissions:
@@ -62,13 +78,18 @@ jobs:
         name: Convert test reports to CTRF JSON
         # description: |
         #   This step publishes CTRF test reports on github UI (actions)
+        env:
+          APP_NAME: ${{ github.repository }}
+          BUILD_NUMBER: ${{ github.run_id }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_SHA: ${{ github.sha }}
         run: |
-          appName="${{ github.repository }}"
-          buildNumber="${{ github.run_id }}"
-          appVersion="${{ github.event.pull_request.head.sha }}"
+          appName="${APP_NAME}"
+          buildNumber="${BUILD_NUMBER}"
+          appVersion="${PR_HEAD_SHA}"
           if [[ -z "${appVersion}" ]] ; then
             # for push events
-            appVersion="${{ github.sha }}"
+            appVersion="${PUSH_SHA}"
           fi
 
           # reconstruct platform information from the file name
