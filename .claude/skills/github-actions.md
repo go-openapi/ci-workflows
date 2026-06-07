@@ -92,6 +92,97 @@ When handling race conditions, check for these specific error messages:
 - **Merge already in progress**: `"Merge already in progress"` (from `gh pr merge --auto`)
 - Use exact strings from GitHub's GraphQL API responses (check action logs to verify)
 
+## Security: Hardening Against Untrusted Input
+
+Workflow context values (PR titles, branch names, `head.ref`, `head.sha`,
+`head.repo.*`), artifact contents, and anything read back from a checked-out PR
+are **attacker-controlled** on fork pull requests. Three rules keep them from
+turning into code execution or output spoofing.
+
+### 1. Bind context to `env:`, never expand `${{ }}` in a `run:` script
+
+`${{ }}` expressions are substituted into the script **before** bash parses it,
+so a hostile value becomes shell syntax — classic expression injection. Pass the
+value through `env:` (a real shell variable, expanded once and never re-parsed)
+and use it quoted.
+
+```yaml
+# ❌ WRONG - expression injection: a PR titled $(curl evil) executes
+- name: Comment
+  run: |
+    gh pr comment --body "Title: ${{ github.event.pull_request.title }}"
+
+# ✅ CORRECT - value arrives as data, not code
+- name: Comment
+  env:
+    PR_TITLE: ${{ github.event.pull_request.title }}
+  run: |
+    gh pr comment --body "Title: ${PR_TITLE}"
+```
+
+> Applies to every untrusted context field and to step outputs derived from
+> files/artifacts. Trusted/static values (`github.repository`, `github.run_id`)
+> are safe, but bind them via `env:` too for consistency.
+
+> **Gotcha:** the Actions expression engine scans the *entire* `run:` block —
+> including bash `#` comment lines — for `${{ }}`. Never write a literal `${{ }}`
+> inside a `run:` script, even in a comment: an empty pair fails the workflow at
+> parse time with `An expression was expected`, and a non-empty one gets
+> evaluated. Refer to it in prose instead (e.g. "an Actions expression sink").
+> (Top-level YAML `#` comments are exempt — they are stripped before expressions
+> are evaluated.)
+
+### 2. Always quote expansions (and handle filenames NUL-safely)
+
+Unquoted expansions word-split and glob. shellcheck (SC2086) flags these — keep
+it green, and state it explicitly for any value derived from a file or artifact
+whose name you do not control.
+
+```yaml
+# ❌ WRONG - hostile / space-bearing filenames word-split into sed's argv
+run: |
+  sed -i "s|a|b|" $(find coverage -name '*.out')
+
+# ✅ CORRECT - NUL-delimited collection, quoted array
+run: |
+  mapfile -d '' -t files < <(find coverage -name '*.out' -print0)
+  [[ ${#files[@]} -gt 0 ]] && sed -i "s|a|b|" "${files[@]}"
+```
+
+### 3. Treat artifacts / PR-checkout output as untrusted: validate, and gate on presence
+
+Anything produced by a job that built or ran PR code — an uploaded artifact, a
+generated file, a value read back from one — can be poisoned. Before using it:
+
+- **Validate the shape** at the trust boundary (e.g. a PR number must match
+  `^[0-9]+$`) and fail closed otherwise.
+- **Confirm the artifact exists / the producing step succeeded** before
+  consuming it: download with `continue-on-error` and gate the next step on
+  `steps.<id>.outcome == 'success'`, rather than assuming content is present.
+
+```yaml
+- name: Download report
+  id: dl
+  uses: actions/download-artifact@<sha>
+  with:
+    name: report
+    run-id: ${{ github.event.workflow_run.run_id }}
+    repository: ${{ github.repository }}
+    github-token: ${{ github.token }}   # cross-run download needs token + actions:read
+  continue-on-error: true
+- name: Use report
+  if: ${{ steps.dl.outcome == 'success' }}
+  run: ...
+```
+
+**Invariant — keep the trust boundary intact.** A reusable workflow that checks
+out or executes PR code (`ref: github.event.pull_request.head.ref`) is safe only
+when called from `pull_request` (or a trusted push), where fork PRs receive no
+secrets. **Never** front such a workflow with `pull_request_target` or bridge it
+via `workflow_run`: that runs attacker-controlled code/artifacts in a privileged
+context with secrets. Record this invariant in a `# Security model:` header at the
+top of the workflow so a future caller cannot wire it up unsafely.
+
 ## Common Patterns & Solutions
 
 ### wait-pending-jobs Action
