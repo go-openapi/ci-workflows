@@ -99,7 +99,8 @@ jobs:
           # name/path are read from the untrusted checked-out go.mod via the go
           # toolchain. Go module paths are restricted to [A-Za-z0-9-._~/], so they
           # cannot carry shell or sed metacharacters; we still keep them double
-          # quoted and never route file/artifact data through a ${{ }} sink.
+          # quoted and never route file/artifact data through an Actions
+          # expression-interpolation sink.
           go list -m -f '{"name":{{ printf "%q" .Path }},"path":{{ printf "%q" .Dir }}}' |\
           jq -r '[.name,.path] | @tsv' |\
           while IFS=$'\t' read -r name path ; do
