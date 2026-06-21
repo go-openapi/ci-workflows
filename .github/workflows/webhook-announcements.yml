@@ -1,0 +1,303 @@
+name: Webhook Announcements
+
+# description: |
+#   Reusable workflow to be called on pushes to the default branch, with a
+#   `paths:` filter on a scanned markdown file (default: README.md).
+#
+#   It detects announcements newly added to the "## Announcements" section of
+#   that file and routes each one to a webhook (Discord by default).
+#
+#   Each announcement is a top-level bullet of the form:
+#
+#     * **2026-04-15** : added support for trailing "-" for arrays (v0.23.0)
+#       * detail line
+#       * detail line
+#
+#   The first line becomes the message title; the indented sub-bullets become
+#   the message body. If several announcements land in a single push (across one
+#   or more commits), each one is posted as a separate message.
+#
+#   Caller example:
+#
+#     on:
+#       push:
+#         branches: [master]
+#         paths: ['README.md']
+#     jobs:
+#       announce:
+#         uses: go-openapi/ci-workflows/.github/workflows/webhook-announcements.yml@master
+#         secrets: inherit
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+on:
+  workflow_call:
+    inputs:
+      scanned-markdown:
+        description: |
+          Markdown file to scan for new announcements.
+        type: string
+        default: README.md
+      section:
+        description: |
+          Heading text whose section is scanned (the "## <section>" block).
+        type: string
+        default: Announcements
+      username:
+        description: |
+          Username displayed by the webhook for the posted message.
+        type: string
+        default: go-openapi news
+      dry-run:
+        description: |
+          When 'true', build and print payloads but do not POST them.
+        type: string
+        default: 'false'
+      compare-base:
+        description: |
+          Optional git ref to diff the scanned file against, instead of the
+          pushed range. Passing the empty-tree SHA
+          (4b825dc642cb6eb9a060e54bf8d69288fbee4904) treats every current
+          announcement as new and posts them all (useful for manual testing or
+          backfilling). Leave empty for normal push-triggered operation.
+        type: string
+        default: ''
+    secrets:
+      webhook-url:
+        description: |
+          Webhook URL to post announcements to.
+          Default for go-openapi: secrets.DISCORD_ANNOUNCEMENTS_WEBHOOK_URL
+        required: false
+
+jobs:
+  notify-announcements:
+    name: Notify new announcements
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      -
+        name: Checkout code
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+      -
+        name: Extract new announcements
+        id: extract
+        env:
+          SCANNED: ${{ inputs.scanned-markdown }}
+          SECTION: ${{ inputs.section }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          COMPARE_BASE: ${{ inputs.compare-base }}
+        run: |
+          set -euo pipefail
+
+          : "${SCANNED:=README.md}"
+          : "${SECTION:=Announcements}"
+
+          # Resolve the diff range. An explicit compare-base wins (manual /
+          # backfill). Otherwise use the full pushed range when available, else
+          # the last commit only. `before` is all-zeros on a branch's first push
+          # and may be unreachable on force pushes.
+          after="${AFTER}"
+          before="${BEFORE}"
+          zero="0000000000000000000000000000000000000000"
+          if [ -n "${COMPARE_BASE}" ]; then
+            before="${COMPARE_BASE}"
+          elif [ -z "${before}" ] || [ "${before}" = "${zero}" ] \
+             || ! git rev-parse -q --verify "${before}^{commit}" >/dev/null 2>&1; then
+            before="${after}^"
+          fi
+          echo "Scanning '${SCANNED}' for new '${SECTION}' between ${before} and ${after}"
+
+          # Extract the "## <section>" block from a markdown stream on stdin:
+          # everything after the section heading, up to the next heading.
+          extract_section() {
+            awk -v sec="${SECTION}" '
+              BEGIN { inSec = 0 }
+              !inSec && $0 ~ "^#+[[:space:]]+" sec "[[:space:]]*$" { inSec = 1; next }
+              inSec && /^#+[[:space:]]/ { inSec = 0 }
+              inSec { print }
+            '
+          }
+
+          # Split a section into per-announcement block files in a directory.
+          # A block starts at a top-level list item and absorbs the indented /
+          # blank lines that follow, until the next top-level item.
+          split_blocks() {
+            local dir="$1"
+            mkdir -p "${dir}"
+            awk -v dir="${dir}" '
+              function flush() {
+                if (n > 0) {
+                  f = sprintf("%s/block-%04d.txt", dir, n)
+                  printf "%s", buf > f
+                  close(f)
+                }
+              }
+              BEGIN { n = 0; buf = "" }
+              /^[*-][[:space:]]/ { flush(); n++; buf = $0 "\n"; next }
+              { if (n > 0) buf = buf $0 "\n" }
+              END { flush() }
+            '
+          }
+
+          # Normalized identity of a block: its first line, lowercased, stripped
+          # of the bullet marker, bold markers and backticks, spaces collapsed.
+          block_key() {
+            head -n 1 "$1" \
+              | sed -E 's/^[[:space:]]*[*-][[:space:]]+//; s/\*\*//g; s/`//g' \
+              | tr '[:upper:]' '[:lower:]' \
+              | tr -s '[:space:]' ' ' \
+              | sed -E 's/^ +//; s/ +$//'
+          }
+
+          old_dir="$(mktemp -d)"
+          new_dir="$(mktemp -d)"
+          git show "${before}:${SCANNED}" 2>/dev/null | extract_section | split_blocks "${old_dir}" || true
+          git show "${after}:${SCANNED}"  2>/dev/null | extract_section | split_blocks "${new_dir}" || true
+
+          # Build the set of keys that already existed before the push.
+          # block_key strips its trailing newline, so write each key on its own
+          # line — otherwise the keys concatenate and the grep -x below never
+          # matches, causing every announcement to be re-posted on every run.
+          old_keys="$(mktemp)"
+          for f in "${old_dir}"/block-*.txt; do
+            [ -e "${f}" ] || continue
+            printf '%s\n' "$(block_key "${f}")" >> "${old_keys}"
+          done
+
+          # Emit each genuinely new block as a NUL-delimited record:
+          #   <title>\x1f<description>\x00
+          out="${GITHUB_WORKSPACE}/announcements.records"
+          : > "${out}"
+          count=0
+          for f in "${new_dir}"/block-*.txt; do
+            [ -e "${f}" ] || continue
+            key="$(block_key "${f}")"
+            if grep -qxF "${key}" "${old_keys}"; then
+              continue
+            fi
+
+            # Title: first line, stripped of bullet / bold / backticks, with the
+            # "DATE : summary" separator normalized to "DATE: summary".
+            title="$(head -n 1 "${f}" \
+              | sed -E 's/^[[:space:]]*[*-][[:space:]]+//; s/\*\*//g; s/`//g; s/[[:space:]]+:[[:space:]]+/: /; s/[[:space:]]+$//')"
+
+            # Description: the remaining lines. Strip the 2-space sub-bullet
+            # indent (so Discord renders a clean top-level list), turn
+            # reference-style links [text][ref] into plain text, strip backticks,
+            # and drop leading blank lines.
+            desc="$(tail -n +2 "${f}" \
+              | sed -E 's/^  //; s/`//g; s/\[([^]]+)\]\[[^]]*\]/\1/g' \
+              | sed -E '/./,$!d')"
+
+            printf '%s\x1f%s\x00' "${title}" "${desc}" >> "${out}"
+            count=$((count + 1))
+            echo "::notice title=announcements::New announcement: ${title}"
+          done
+
+          echo "count=${count}" >> "$GITHUB_OUTPUT"
+          if [ "${count}" -eq 0 ]; then
+            echo "No new announcements detected."
+          else
+            echo "Detected ${count} new announcement(s)."
+          fi
+      -
+        name: Post announcements
+        if: ${{ steps.extract.outputs.count != '0' }}
+        env:
+          WEBHOOK_URL: ${{ secrets.webhook-url || secrets.DISCORD_ANNOUNCEMENTS_WEBHOOK_URL }}
+          USERNAME: ${{ inputs.username }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          REPO: ${{ github.repository }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+
+          if [ "${DRY_RUN}" != 'true' ] && [ -z "${WEBHOOK_URL}" ]; then
+            echo "::error title=webhook::No webhook URL set (pass secrets.webhook-url or set DISCORD_ANNOUNCEMENTS_WEBHOOK_URL)"
+            exit 1
+          fi
+
+          url="https://github.com/${REPO}#announcements"
+          records="${GITHUB_WORKSPACE}/announcements.records"
+
+          post_one() {
+            local title="$1" desc="$2"
+            # Discord limits: title 256, description 4096. Stay safely under.
+            title="${title:0:256}"
+            desc="${desc:0:4000}"
+
+            local args
+            args=(-n
+              --arg username "${USERNAME}"
+              --arg content "ℹ️ **${REPO_NAME} — Heads-up**"
+              --arg title "${title}"
+              --arg url "${url}")
+            local filter
+            if [ -n "${desc}" ]; then
+              args+=(--arg desc "${desc}")
+              filter='{ username: $username, content: $content, allowed_mentions: { parse: [] }, embeds: [ { title: $title, url: $url, color: 5763719, description: $desc } ] }'
+            else
+              filter='{ username: $username, content: $content, allowed_mentions: { parse: [] }, embeds: [ { title: $title, url: $url, color: 5763719 } ] }'
+            fi
+            jq "${args[@]}" "${filter}" > payload.json
+
+            if [ "${DRY_RUN}" = 'true' ]; then
+              echo "--- dry-run payload ---"
+              cat payload.json
+              echo
+              return 0
+            fi
+
+            local code
+            code=$(curl -sS -o resp.txt -w '%{http_code}' \
+              -H "Content-Type: application/json" \
+              -X POST --data @payload.json \
+              "${WEBHOOK_URL}?wait=true")
+            echo "Webhook HTTP ${code}"
+            case "${code}" in
+              2*)
+                echo "::notice title=webhook::Posted announcement (HTTP ${code})"
+                ;;
+              429)
+                local retry
+                retry=$(jq -r '.retry_after // 2' resp.txt 2>/dev/null || echo 2)
+                echo "::warning title=webhook::Rate limited, retrying after ${retry}s"
+                sleep "${retry}"
+                code=$(curl -sS -o resp.txt -w '%{http_code}' \
+                  -H "Content-Type: application/json" \
+                  -X POST --data @payload.json \
+                  "${WEBHOOK_URL}?wait=true")
+                case "${code}" in
+                  2*) echo "::notice title=webhook::Posted announcement on retry (HTTP ${code})" ;;
+                  *)  echo "::error title=webhook::Webhook returned HTTP ${code} on retry"; cat resp.txt || true; exit 1 ;;
+                esac
+                ;;
+              *)
+                echo "::error title=webhook::Webhook returned HTTP ${code}"
+                cat resp.txt || true
+                exit 1
+                ;;
+            esac
+          }
+
+          # Records are NUL-delimited; fields within a record split on \x1f.
+          posted=0
+          while IFS= read -r -d '' record; do
+            title="${record%%$'\x1f'*}"
+            desc="${record#*$'\x1f'}"
+            post_one "${title}" "${desc}"
+            posted=$((posted + 1))
+            # Gentle spacing to stay clear of webhook rate limits.
+            sleep 1
+          done < "${records}"
+
+          echo "::notice title=webhook::Processed ${posted} announcement(s)"
