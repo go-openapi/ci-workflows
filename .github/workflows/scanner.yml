@@ -49,7 +49,7 @@ jobs:
           exit-code: 0
       -
         name: Upload trivy findings to code scanning dashboard
-        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
+        uses: github/codeql-action/upload-sarif@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v4.36.3
         with:
           category: trivy
           sarif_file: trivy-code-report.sarif
@@ -69,7 +69,7 @@ jobs:
           output-file: govulnscan-report.sarif
       -
         name: Upload govulnscan findings to code scanning dashboard
-        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
+        uses: github/codeql-action/upload-sarif@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v4.36.3
         with:
           category: govulnscan
           sarif_file: govulnscan-report.sarif
