@@ -11,7 +11,7 @@ on:
         description: extra flags to add to go test
         type: string
         required: false
-      matrix:
+      test-matrix:
         description: |
           Optional JSON string to define the test matrix, using keys: "os" and "go".
 
