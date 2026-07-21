@@ -122,7 +122,7 @@ jobs:
     steps:
       -
         name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       -
@@ -167,7 +167,7 @@ jobs:
     steps:
       -
         name: Checkout code
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       -
@@ -231,7 +231,7 @@ jobs:
       -
         name: Checkout repository
         if: ${{ needs.prepare-modules.outputs.pull-request-operation  != 'none' && needs.prepare-modules.outputs.pull-request-operation != 'closed' }}
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       -
         name: Wait for PR to be merged
         if: ${{ needs.prepare-modules.outputs.pull-request-operation  != 'none' && needs.prepare-modules.outputs.pull-request-operation != 'closed' }}
@@ -291,7 +291,7 @@ jobs:
     steps:
       -
         name: Checkout code (fresh after PR merge)
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           # Fetch the latest code after the PR has been merged
