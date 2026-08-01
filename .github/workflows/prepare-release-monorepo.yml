@@ -125,20 +125,77 @@ jobs:
           root_module="${{ steps.detect-monorepo.outputs.root-module }}"
           echo "::notice title=prepare-release::Updating modules to ${TARGET_TAG} for ${root_module}"
 
-          # Find all go.mod directories and process them.
+          # Map every module of this repo to its directory.
           #
-          # Since all internal dependencies are already resolved using "replace" directives,
-          # what we are adding here is only visible to external users of the package, not locally.
-          #
-          # Therefore, there is no need to care about the order in which we apply this change.
-          declare -a ALL_FOLDERS
+          # Module paths are read from go.mod rather than from "go list": this needs no dependency
+          # resolution, works for modules that hold no package at their root, and yields the module
+          # path rather than the package path for "/vN" modules.
+          declare -a ALL_FOLDERS ALL_MODULES ALL_DIRS
           mapfile -d' ' -t ALL_FOLDERS < <(printf "%s" "${MODULE_PATHS}")
           for dir in "${ALL_FOLDERS[@]}"; do
-            echo "::notice title=processing-module::Processing module in ${dir}"
+            if [[ -z "${dir}" ]] ; then
+              continue
+            fi
+            ALL_DIRS+=("$(cd "${dir}" && pwd)")
+            ALL_MODULES+=("$(go mod edit -json "${dir}/go.mod" | jq -r '.Module.Path')")
+          done
+
+          # Replace directives already in place are none of our business (they may well point to a
+          # fork). Record them, so that we only ever remove the ones we add ourselves.
+          snapshot="$(mktemp -d)"
+
+          # Phase 1: give every module a replace directive for every other module of this repo.
+          #
+          # Modules that already resolve their intra-repo dependencies with "replace" directives need
+          # nothing: the rewrite we are about to apply stays invisible to the local build.
+          #
+          # Modules that carry no such directive do: "go mod tidy" would resolve the tag we are
+          # preparing, which does not exist yet. Those modules are precisely the ones distributed as
+          # binaries, since "go install" refuses any module whose go.mod holds a replace directive.
+          # We lend them the directives for the duration of this step, then take them back out.
+          #
+          # Blanket injection, rather than only the direct dependencies: replace directives apply from
+          # the main module only, so a sibling's own requires would still resolve against the
+          # unreleased tag. Unused replaces are inert and "go mod tidy" leaves them alone.
+          for i in "${!ALL_DIRS[@]}"; do
+            dir="${ALL_DIRS[$i]}"
+            current_module="${ALL_MODULES[$i]}"
+            recorded="${snapshot}/$(echo "${current_module}" | tr / _)"
             pushd "${dir}" > /dev/null
 
             echo "Original go.mod"
             cat go.mod
+
+            go mod edit -json | jq -r '.Replace[]?.Old.Path' | sort -u > "${recorded}"
+            : > "${recorded}.injected"
+
+            for j in "${!ALL_MODULES[@]}"; do
+              sibling="${ALL_MODULES[$j]}"
+              if [[ "${sibling}" == "${current_module}" ]] ; then
+                continue
+              fi
+              if grep -qxF "${sibling}" "${recorded}" ; then
+                continue
+              fi
+
+              rel="$(realpath --relative-to="${dir}" "${ALL_DIRS[$j]}")"
+              if [[ "${rel}" != .* ]] ; then
+                rel="./${rel}"
+              fi
+              echo "::notice title=inject-replace::Temporarily replacing ${sibling} with ${rel} in ${current_module}"
+              go mod edit -replace "${sibling}=${rel}"
+              echo "${sibling}" >> "${recorded}.injected"
+            done
+
+            popd > /dev/null
+          done
+
+          # Phase 2: rewrite the intra-repo requires and tidy each module.
+          for i in "${!ALL_DIRS[@]}"; do
+            dir="${ALL_DIRS[$i]}"
+            current_module="${ALL_MODULES[$i]}"
+            echo "::notice title=processing-module::Processing module ${current_module} in ${dir}"
+            pushd "${dir}" > /dev/null
 
             requiredVersion=$(go mod edit -json |jq -r '.Go')
             export GOTOOLCHAIN="go${requiredVersion}"
@@ -155,7 +212,6 @@ jobs:
             #
             # Caveat: if the module's author forgot to put a proper release (e.g. use pseudo-commit instead of
             # proper vx.y.z require), this rewrite will be omitted. For now, this edge case is simply ignored.
-            current_module=$(go list)
             while read -r module ; do
               echo "::notice title=updating-dependency::Updating ${module} to ${TARGET_TAG}"
               go mod edit -require "${module}@${TARGET_TAG}"
@@ -172,14 +228,68 @@ jobs:
             echo "::notice title=tidy::Running go mod tidy in ${dir}"
             go mod tidy -v
 
+            # Tidying may pull in intra-repo modules as indirect requires, pinned to whatever version
+            # the sibling's go.mod carried at that moment - a stale one when that sibling has not been
+            # processed yet. Bump those too, then tidy again: MVS keeps the higher version, so the
+            # second pass settles.
+            while read -r module ; do
+              echo "::notice title=updating-indirect::Updating indirect ${module} to ${TARGET_TAG}"
+              go mod edit -require "${module}@${TARGET_TAG}"
+            done < <( go mod edit -json | jq -r '.Require[]?.Path' | \
+              grep "^${root_module}" | \
+              grep -v "^${current_module}$" || true )
+            go mod tidy -v
+
             popd > /dev/null
           done
 
-          # Sync go.work if it exists
+          # Sync go.work if it exists.
+          #
+          # This still needs the borrowed replace directives: "go work sync" resolves the requires of
+          # every workspace module, and would trip over the tag we are preparing just as "tidy" does.
           if [[ -f go.work ]] ; then
             echo "::notice title=sync::Running go work sync"
             go work sync
           fi
+
+          # Phase 3: take back out exactly what we lent, and nothing else.
+          for i in "${!ALL_DIRS[@]}"; do
+            current_module="${ALL_MODULES[$i]}"
+            recorded="${snapshot}/$(echo "${current_module}" | tr / _)"
+            pushd "${ALL_DIRS[$i]}" > /dev/null
+
+            while read -r sibling ; do
+              if [[ -z "${sibling}" ]] ; then
+                continue
+              fi
+              echo "::notice title=drop-replace::Removing temporary replace of ${sibling} from ${current_module}"
+              go mod edit -dropreplace "${sibling}"
+            done < "${recorded}.injected"
+
+            popd > /dev/null
+          done
+
+          # No module may leave this step carrying an intra-repo replace directive it did not have
+          # before. A stray one makes the module uninstallable, and nothing downstream would catch it:
+          # under go.work the pull request's CI stays green, and the release PR is approved and merged
+          # by bots, without human review.
+          failed=0
+          for i in "${!ALL_DIRS[@]}"; do
+            current_module="${ALL_MODULES[$i]}"
+            recorded="${snapshot}/$(echo "${current_module}" | tr / _)"
+            while read -r leftover ; do
+              if [[ -z "${leftover}" ]] || grep -qxF "${leftover}" "${recorded}" ; then
+                continue
+              fi
+              echo "::error title=leftover-replace::${current_module} carries an unexpected replace of ${leftover}"
+              failed=1
+            done < <( go mod edit -json "${ALL_DIRS[$i]}/go.mod" | jq -r '.Replace[]?.Old.Path' | sort -u )
+          done
+          if [[ "${failed}" -ne 0 ]] ; then
+            echo "::error title=leftover-replace::Refusing to prepare a release: a module would be published with a replace directive"
+            exit 1
+          fi
+          echo "::notice title=guard::No leftover replace directive"
 
           # Show what has changed
           echo "::notice title=changes::Git status after updates"

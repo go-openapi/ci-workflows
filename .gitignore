@@ -11,6 +11,9 @@
 # Test binary, built with `go test -c`
 *.test
 
+# Binary built from the sample command module
+/sample-monorepo/cmd/sample-cli/sample-cli
+
 # Code coverage profiles and other test artifacts
 *.out
 coverage.*
