@@ -92,7 +92,7 @@ jobs:
         uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@8dac43b693193389fbdb110e0c39aa013ae089ef # v1.4.16
       -
         name: Install git-cliff
-        uses: taiki-e/install-action@065d6a08a14e61e89fb0a4c10eecdbdef39c7d8e # v2.85.4
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         with:
           tool: git-cliff
       -
