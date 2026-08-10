@@ -159,6 +159,27 @@ jobs:
       -
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       -
+        name: Ensure GOCACHE is created on windows runners
+        # On windows, the github runner locates the GOROOT and GOCACHE on C:, whereas our
+        # tests are executed on D:. We want to colocalize the cache.
+        if: ${{ runner.os  == 'Windows' }}
+        shell: bash
+        env:
+          BASE: ${{ github.workspace }}
+        run: |
+          mkdir -p ../.cache/go-build
+          mkdir -p ../pkg/mod
+          _base=$(cygpath -u "${BASE}")
+          _gocache="$(realpath ${_base}/../.cache/go-build)"
+          _modcache="$(realpath ${_base}/../pkg/mod)"
+          GOCACHE=$(cygpath -w "${_gocache}")
+          GOMODCACHE=$(cygpath -w "${_modcache}")
+          #
+          echo "GOCACHE=${GOCACHE}" >> "${GITHUB_ENV}"
+          echo "GOMODCACHE=${GOMODCACHE}" >> "${GITHUB_ENV}"
+          echo "::gocache::${GOCACHE}"
+          echo "::gomodcache::${GOMODCACHE}"
+      -
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         id: go-setup
         with:
@@ -180,10 +201,16 @@ jobs:
         # This is in particular the case for all programs that use [filepath.Rel].
         if: ${{ runner.os  == 'Windows' }}
         shell: bash
+        env:
+          BASE: ${{ github.workspace }}
         run: |
-          TMP="${{ github.workspace }}\..\tmp"
-          mkdir -p ${TMP}
+          mkdir -p "${BASE}/../tmp"
+          _base=$(cygpath -u "${BASE}")
+          _tmp=$(realpath ${_base}/../tmp)
+          TMP=$(cygpath -w "${_tmp}")
+          #
           echo "TMP=${TMP}" >> "${GITHUB_ENV}"
+          echo "::tmp::${TMP}"
       -
         name: Run unit tests on all modules (go1.25+ with go.work) [monorepo]
         if: ${{ needs.lint.outputs.is-monorepo == 'true' && steps.detect-go-version.outputs.is-gotestwork-supported == 'true' }}
