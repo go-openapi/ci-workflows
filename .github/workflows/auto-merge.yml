@@ -56,11 +56,13 @@ jobs:
       -
         name: Check go directive unchanged
         id: go-directive
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           changed=false
           for gomod in $(find . -name go.mod -not -path '*/vendor/*'); do
             head_go=$(grep '^go ' "$gomod" | awk '{print $2}')
-            base_go=$(git show "origin/${{ github.event.pull_request.base.ref }}:$gomod" 2>/dev/null | grep '^go ' | awk '{print $2}' || echo "")
+            base_go=$(git show "origin/$BASE_REF:$gomod" 2>/dev/null | grep '^go ' | awk '{print $2}' || echo "")
             if [ -n "$base_go" ] && [ "$head_go" != "$base_go" ]; then
               echo "::warning title=go-directive::${gomod}: go directive changed from ${base_go} to ${head_go} — skipping auto-merge"
               changed=true
