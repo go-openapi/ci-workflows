@@ -173,9 +173,9 @@ jobs:
       -
         name: Determine bump type
         id: bump-check
+        env:
+          BUMP_TYPE: ${{ inputs.bump-type }}
         run: |
-          BUMP_TYPE="${{ inputs.bump-type }}"
-
           if [[ "${BUMP_TYPE}" == "patch" ]] ; then
             echo "bump-patch=true" >> "${GITHUB_OUTPUT}"
             echo "bump-minor=false" >> "${GITHUB_OUTPUT}"
@@ -331,6 +331,7 @@ jobs:
           MESSAGE_BODY: ${{ inputs.tag-message-body }}
           MODULE_RELATIVE_NAMES: ${{ needs.detect-modules.outputs.bash-relative-names }}
           GITHUB_REPO: ${{ github.repository }}
+          ENABLE_TAG_SIGNING: ${{ inputs.enable-tag-signing }}
         run: |
           set -x
 
@@ -355,7 +356,7 @@ jobs:
           echo "::notice title=tag-message::Tagging all modules for ${NEXT_TAG}"
 
           SIGNED=""
-          if [[ '${{ inputs.enable-tag-signing }}' == 'true' ]] ; then
+          if [[ "${ENABLE_TAG_SIGNING}" == 'true' ]] ; then
              SIGNED="-s"
           else
              # whenever not signed, we need a DCO

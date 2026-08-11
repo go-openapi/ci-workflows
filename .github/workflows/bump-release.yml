@@ -92,9 +92,9 @@ jobs:
       -
         name: Determine bump type
         id: bump-check
+        env:
+          BUMP_TYPE: ${{ inputs.bump-type }}
         run: |
-          BUMP_TYPE="${{ inputs.bump-type }}"
-
           if [[ "${BUMP_TYPE}" == "patch" ]] ; then
             echo "bump-patch=true" >> "${GITHUB_OUTPUT}"
             echo "bump-minor=false" >> "${GITHUB_OUTPUT}"
@@ -143,6 +143,7 @@ jobs:
           NEXT_TAG: ${{ steps.bump-release.outputs.next-tag }}
           MESSAGE_TITLE: ${{ inputs.tag-message-title }}
           MESSAGE_BODY: ${{ inputs.tag-message-body }}
+          ENABLE_TAG_SIGNING: ${{ inputs.enable-tag-signing }}
         run: |
           # Construct the tag message.
           # A blank line between title and body is required for git to
@@ -158,7 +159,7 @@ jobs:
           echo "::notice title=tag-message::${MESSAGE}"
 
           SIGNED=""
-          if [[ '${{ inputs.enable-tag-signing }}' == 'true' ]] ; then
+          if [[ "${ENABLE_TAG_SIGNING}" == 'true' ]] ; then
              SIGNED="-s"
           else
              # whenever not signed, we need a DCO
