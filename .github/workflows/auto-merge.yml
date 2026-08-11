@@ -20,6 +20,11 @@ on:
         type: string
         required: false
         default: "bot-go-openapi[bot]"
+    secrets:
+      gh_token:
+        description: |
+          github token from the caller.
+        required: false
 
 permissions:
   contents: read
@@ -37,7 +42,7 @@ jobs:
     if: ${{ github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.html_url != '' }}
     env:
       PR_URL: ${{ github.event.pull_request.html_url }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.gh_token || secrets.GITHUB_TOKEN }}
     steps:
       -
         name: Dependabot metadata
@@ -142,7 +147,7 @@ jobs:
     if: ${{ inputs.enable-organization-bot == 'true' && github.event.pull_request.user.login == inputs.organization-bot && github.event.pull_request.html_url != '' }}
     env:
       PR_URL: ${{ github.event.pull_request.html_url }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.gh_token || secrets.GITHUB_TOKEN }}
     steps:
       -
         name: Checkout repository
@@ -155,7 +160,7 @@ jobs:
         uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@8dac43b693193389fbdb110e0c39aa013ae089ef # v1.4.16
         with:
           pr-url: ${{ env.PR_URL }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ env.GH_TOKEN }}
       -
         name: Auto-merge bot-go-openapi PRs
         run: |
