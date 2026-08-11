@@ -67,12 +67,14 @@ jobs:
         # The tag message is not retrieved unless we fetch the ref explicitly.
         # This step actually only requires depth=1, but subsequent steps consume the full history.
         # We ensure that we get a complete unshallowed history for subsequent steps.
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
           set -x
 
           git fetch --unshallow origin 2>/dev/null || true
           git fetch origin +refs/tags/*:refs/tags/*
-          MESSAGE=$(git tag -l '${{ inputs.tag }}' --format='%(contents:subject)
+          MESSAGE=$(git tag -l "${INPUT_TAG}" --format='%(contents:subject)
 
           %(contents:body)
           ')
@@ -83,7 +85,7 @@ jobs:
             echo 'EOF'
           } >> "${GITHUB_OUTPUT}"
 
-          echo "Message in git tag ${{ inputs.tag }}"
+          echo "Message in git tag ${INPUT_TAG}"
           echo "$MESSAGE"
       -
         name: Detect go mono-repo
@@ -98,22 +100,26 @@ jobs:
       -
         name: Check for local cliff config
         id: check-config
+        env:
+          INPUT_CLIFF_CONFIG: ${{ inputs.cliff-config }}
+          INPUT_IS_MONOREPO: ${{ inputs.is-monorepo }}
+          INPUT_MONOREPO_CLIFF_TEMPLATE: ${{ inputs.monorepo-cliff-template }}
         run: |
-          if [[ -f '${{ inputs.cliff-config }}' ]]; then
+          if [[ -f "${INPUT_CLIFF_CONFIG}" ]]; then
             echo "exists=true" >> "${GITHUB_OUTPUT}"
-            echo "::notice title=release::Local config file '${{ inputs.cliff-config }}' found"
+            echo "::notice title=release::Local config file '${INPUT_CLIFF_CONFIG}' found"
           else
             echo "exists=false" >> "${GITHUB_OUTPUT}"
-            echo "::notice title=release::Local config file '${{ inputs.cliff-config }}' not found, will use remote config"
+            echo "::notice title=release::Local config file '${INPUT_CLIFF_CONFIG}' not found, will use remote config"
           fi
 
-          if [[ '${{ inputs.is-monorepo }}' == "true" && -f '${{ inputs.monorepo-cliff-template }}' ]]; then
+          if [[ "${INPUT_IS_MONOREPO}" == "true" && -f "${INPUT_MONOREPO_CLIFF_TEMPLATE}" ]]; then
             echo "monorepo-template-exists=true" >> "${GITHUB_OUTPUT}"
-            echo "::notice title=release::Local monorepo config file '${{ inputs.monorepo-cliff-template }}' found"
+            echo "::notice title=release::Local monorepo config file '${INPUT_MONOREPO_CLIFF_TEMPLATE}' found"
           else
             echo "monorepo-template-exists=false" >> "${GITHUB_OUTPUT}"
-            if [[ ${{ inputs.is-monorepo }} == "true" ]]; then
-              echo "::notice title=release::Local monorepo config file '${{ inputs.monorepo-cliff-template }}' not found, will use remote config"
+            if [[ "${INPUT_IS_MONOREPO}" == "true" ]]; then
+              echo "::notice title=release::Local monorepo config file '${INPUT_MONOREPO_CLIFF_TEMPLATE}' not found, will use remote config"
             else
               echo "::notice title=release::Local monorepo config file not needed"
             fi
@@ -147,6 +153,7 @@ jobs:
           MODULE_RELATIVE_NAMES: ${{ steps.detect-monorepo.outputs.bash-relative-names }}
           MODULE_PATHS: ${{ steps.detect-monorepo.outputs.bash-paths }}
           ROOT_MODULE: ${{ steps.detect-monorepo.outputs.root-module }}
+          INPUT_MONOREPO_CLIFF_TEMPLATE: ${{ inputs.monorepo-cliff-template }}
         run: |
           set -euo pipefail
           set -x
@@ -166,7 +173,7 @@ jobs:
           
           # Determine monorepo template path
           if [[ "${MONOREPO_TEMPLATE_EXISTS}" == "true" ]] ; then
-            cliff_monorepo=$(realpath "${{ inputs.monorepo-cliff-template }}")
+            cliff_monorepo=$(realpath "${INPUT_MONOREPO_CLIFF_TEMPLATE}")
           else
             cliff_monorepo="${LOCAL_TEMPLATE_LOCATION}"
           fi
