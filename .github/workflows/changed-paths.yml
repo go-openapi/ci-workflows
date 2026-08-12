@@ -1,0 +1,236 @@
+name: Changed paths
+
+# description: |
+#   Tells callers whether a pull request touches anything relevant to a given concern:
+#   go sources for the 'go' preset, documentation sources for the 'doc' preset.
+#
+#   The point is to let a workflow skip its expensive jobs on a pull request that cannot
+#   affect them, while still reporting a status: a job skipped by an "if:" costs no runner
+#   minute, but the workflow -- and therefore its gate -- keeps reporting to the branch
+#   protection rules. Filtering with "on.paths-ignore" instead would prevent the workflow
+#   from starting at all, leaving a required check hanging at "Expected -- waiting for
+#   status to be reported".
+#
+#   Detection is ADVISORY and FAILS OPEN. Every uncertain situation resolves to
+#   "changed=true", i.e. do the work. Jobs must never be skipped as the side effect of a
+#   rate limit, a missing token scope or an API quirk. See the "Decide" step below for the
+#   full list of cases.
+
+permissions:
+  contents: read
+  pull-requests: read
+
+on:
+  workflow_call:
+    inputs:
+      preset:
+        description: |
+          Which set of paths to watch: 'go' or 'doc'.
+
+          'go' watches go sources and anything that alters a build or a test outcome.
+          'doc' watches markdown, the hugo doc site and the markdown/spellcheck linter
+          configurations.
+
+          Both presets are deliberately generous: one pattern too many only means the work
+          runs when it need not, one pattern too few means it is silently skipped when it
+          should have run.
+        type: string
+        required: true
+      extra-paths:
+        description: |
+          Extra glob patterns to watch on top of the preset, one per line.
+
+          Repositories that do not follow the go-openapi layout declare the difference here,
+          e.g. for a doc site whose content sits at the repository root:
+
+            extra-paths: |
+              docs/**
+
+          Patterns are picomatch globs, relative to the repository root.
+        type: string
+        required: false
+        default: ''
+      force:
+        description: |
+          Set to 'true' to bypass detection altogether and always report 'changed=true'.
+
+          Use it for scheduled or manually dispatched runs that must do the work whatever
+          changed, and as the opt-out for repositories that do not want path-based skipping.
+        type: string
+        required: false
+        default: 'false'
+    outputs:
+      changed:
+        description: |
+          'true' when a watched path changed, or when detection could not be trusted.
+          'false' only when we positively established that nothing relevant changed.
+        value: ${{ jobs.changed-paths.outputs.changed }}
+      reason:
+        description: 'Plain English explanation of how the decision was reached.'
+        value: ${{ jobs.changed-paths.outputs.reason }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  changed-paths:
+    name: detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.decide.outputs.changed }}
+      reason: ${{ steps.decide.outputs.reason }}
+    steps:
+      -
+        name: Build the filter spec
+        id: spec
+        env:
+          PRESET: ${{ inputs.preset }}
+          EXTRA_PATHS: ${{ inputs.extra-paths }}
+        run: |
+          # Watched paths per preset. Leading blanks are trimmed when the lists are
+          # emitted, so these stay aligned with the surrounding script.
+          GO_PATHS='**/*.go
+          **/*.gotmpl
+          **/go.mod
+          **/go.sum
+          **/go.work
+          **/go.work.sum
+          **/testdata/**
+          .golangci.yml
+          .golangci.yaml
+          .codecov.yml
+          .github/workflows/**'
+
+          # The go-openapi layout is: markdown content under docs/doc-site, hugo
+          # configuration, layouts and themes under hack/doc-site/hugo. Repositories that
+          # keep their content elsewhere add it through extra-paths.
+          DOC_PATHS='**/*.md
+          **/*.markdown
+          docs/doc-site/**
+          hack/doc-site/**
+          .markdownlint.yml
+          .markdownlint.yaml
+          .spellcheck.yml
+          .spellcheck.yaml
+          .wordlist.txt'
+
+          case "${PRESET}" in
+            go)
+              base="${GO_PATHS}"
+              ;;
+            doc)
+              base="${DOC_PATHS}"
+              ;;
+            *)
+              # A bad preset is a caller mistake, not an uncertain detection: fail loudly
+              # rather than fall back on watching nothing.
+              echo "::error title=changed-paths::unknown preset '${PRESET}': expected 'go' or 'doc'"
+              exit 1
+              ;;
+          esac
+
+          spec="${RUNNER_TEMP}/paths-filter.yml"
+          echo "changed:" > "${spec}"
+
+          # Single quotes are dropped: they would break the YAML scalar and no legitimate
+          # glob needs them. The "|| [[ -n ... ]]" tail keeps the last line when the input
+          # does not end with a newline.
+          emit_globs() {
+            local glob
+
+            while IFS=$' \t' read -r glob || [[ -n "${glob}" ]] ; do
+              glob="${glob//\'/}"
+              if [[ -z "${glob}" ]] ; then
+                continue
+              fi
+              printf "  - '%s'\n" "${glob}" >> "${spec}"
+            done
+          }
+
+          printf '%s\n' "${base}" | emit_globs
+          printenv EXTRA_PATHS | emit_globs
+
+          echo "::group::paths filter spec (preset: ${PRESET})"
+          cat "${spec}"
+          echo "::endgroup::"
+
+          {
+            echo "filters<<PATHS_FILTER_SPEC"
+            cat "${spec}"
+            echo "PATHS_FILTER_SPEC"
+          } >> "${GITHUB_OUTPUT}"
+      -
+        name: Detect changed paths
+        id: filter
+        # Only pull requests carry a list of changed files we can rely on: the action
+        # reads it from the pull request files API of the BASE repository, so it works
+        # for fork pull requests (the read-only token is still a token on the base repo)
+        # and needs no checkout. On any other event -- push, schedule, workflow_dispatch,
+        # merge_group -- there is no such list and we do the work.
+        #
+        # continue-on-error is what makes the failure open rather than closed: a rate
+        # limit or a caller that forgot "pull-requests: read" leaves the decision below
+        # free to fall back on doing the work.
+        if: >-
+          ${{
+            inputs.force != 'true' &&
+            (github.event_name == 'pull_request' || github.event_name == 'pull_request_target')
+          }}
+        continue-on-error: true
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: ${{ steps.spec.outputs.filters }}
+      -
+        name: Decide
+        id: decide
+        env:
+          FORCE: ${{ inputs.force }}
+          EVENT_NAME: ${{ github.event_name }}
+          # Empty outside of a pull request context.
+          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+          FILTER_OUTCOME: ${{ steps.filter.outcome }}
+          FILTER_CHANGED: ${{ steps.filter.outputs.changed }}
+        run: |
+          # The pull request files API returns at most this many entries. At or above the
+          # cap the list is truncated, so "nothing relevant changed" cannot be concluded
+          # from it. Large regeneration pull requests do reach this.
+          API_FILE_CAP=3000
+
+          decision() {
+            local changed="$1" reason="$2"
+
+            printf 'changed=%s\n' "${changed}" >> "${GITHUB_OUTPUT}"
+            printf 'reason=%s\n' "${reason}" >> "${GITHUB_OUTPUT}"
+
+            if [[ "${changed}" == "true" ]] ; then
+              echo "::notice title=changed-paths::proceeding: ${reason}"
+            else
+              echo "::notice title=changed-paths::skipping: ${reason}"
+            fi
+
+            exit 0
+          }
+
+          if [[ "${FORCE}" == "true" ]] ; then
+            decision true "detection bypassed by the 'force' input"
+          fi
+
+          if [[ "${EVENT_NAME}" != "pull_request" && "${EVENT_NAME}" != "pull_request_target" ]] ; then
+            decision true "event '${EVENT_NAME}' carries no reliable list of changed files"
+          fi
+
+          if [[ "${CHANGED_FILES}" =~ ^[0-9]+$ ]] && (( CHANGED_FILES >= API_FILE_CAP )) ; then
+            decision true \
+              "this pull request reports ${CHANGED_FILES} changed files, at or over the ${API_FILE_CAP}-file cap of the pull request files API: the list is truncated"
+          fi
+
+          if [[ "${FILTER_OUTCOME}" != "success" ]] ; then
+            decision true "changed paths could not be determined (detection outcome: '${FILTER_OUTCOME}')"
+          fi
+
+          if [[ "${FILTER_CHANGED}" == "true" ]] ; then
+            decision true "a watched path changed"
+          fi
+
+          decision false "no watched path changed"

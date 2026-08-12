@@ -1,0 +1,58 @@
+name: Doc changed
+
+# description: |
+#   Tells a documentation workflow whether a pull request touches the doc site, so it can
+#   skip its build (or its markdown/spellcheck lint) while still reporting a status.
+#
+#   Replaces markdown-changed.yml, which reported only "some markdown changed", relied on
+#   tj-actions/changed-files, needed a checkout, and had no fallback when detection failed.
+#
+#   Detection FAILS OPEN: see changed-paths.yml, which does the actual work.
+
+permissions:
+  contents: read
+  pull-requests: read
+
+on:
+  workflow_call:
+    inputs:
+      extra-paths:
+        description: |
+          Extra glob patterns to watch on top of the doc preset, one per line.
+
+          The preset follows the go-openapi layout: markdown anywhere, content under
+          docs/doc-site, hugo configuration and themes under hack/doc-site. A repository
+          that keeps its content elsewhere declares it here, e.g. go-swagger:
+
+            extra-paths: |
+              docs/**
+        type: string
+        required: false
+        default: ''
+      force:
+        description: |
+          Set to 'true' to bypass detection and always report 'changed=true'.
+
+          Use it for scheduled or manually dispatched runs, and as the opt-out for
+          repositories that do not want path-based skipping.
+        type: string
+        required: false
+        default: 'false'
+    outputs:
+      changed:
+        description: |
+          'true' when a documentation path changed, or when detection could not be trusted.
+          'false' only when we positively established that no doc path changed.
+        value: ${{ jobs.doc-changed.outputs.changed }}
+      reason:
+        description: 'Plain English explanation of how the decision was reached.'
+        value: ${{ jobs.doc-changed.outputs.reason }}
+
+jobs:
+  doc-changed:
+    name: doc changed
+    uses: ./.github/workflows/changed-paths.yml
+    with:
+      preset: doc
+      extra-paths: ${{ inputs.extra-paths }}
+      force: ${{ inputs.force }}
