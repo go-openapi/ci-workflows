@@ -219,7 +219,11 @@ jobs:
           ./...
       - 
         name: Run unit tests on all modules (<go1.25 or no go.work) [monorepo]
-        if: >
+        # Mind the ">-" rather than ">": a plain fold scalar keeps a trailing newline, which
+        # leaves characters around the ${{ }} and makes the whole condition a non-empty
+        # string -- always true. This step used to run unconditionally, alongside the
+        # go1.25 one on a monorepo.
+        if: >-
           ${{
               needs.lint.outputs.is-monorepo == 'true' && steps.detect-go-version.outputs.is-gotestwork-supported != 'true'
           }}

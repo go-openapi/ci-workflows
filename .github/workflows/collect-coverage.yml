@@ -103,8 +103,37 @@ jobs:
           # expression-interpolation sink.
           go list -m -f '{"name":{{ printf "%q" .Path }},"path":{{ printf "%q" .Dir }}}' |\
           jq -r '[.name,.path] | @tsv' |\
+          # Longest module path first: in a monorepo a submodule name has the root module
+          # name as its prefix, so rewriting the root first would chew into the submodule
+          # lines. Longest match wins settles the order.
+          awk -F'\t' '{ print length($1) "\t" $0 }' | sort -rn -k1,1 | cut -f2- |\
           while IFS=$'\t' read -r name path ; do
-            target="github.com/${GITHUB_REPOSITORY}/${path#${GITHUB_WORKSPACE}/}"
+            # .Dir is the module root, and for the repository's OWN root module it is
+            # exactly GITHUB_WORKSPACE -- no trailing slash. Stripping with a pattern that
+            # carries one ("${path#${GITHUB_WORKSPACE}/}") matches nothing there, leaving
+            # the absolute runner path in place and gluing it into every coverage line:
+            #
+            #   github.com/org/repo/pkg/f.go
+            #     -> github.com/org/repo//home/runner/work/repo/repo/pkg/f.go
+            #
+            # codecov then maps none of it and the report shows no coverage at all.
+            rel="${path#"${GITHUB_WORKSPACE}"}"
+            rel="${rel#/}"
+
+            if [[ -n "${rel}" ]] ; then
+              target="github.com/${GITHUB_REPOSITORY}/${rel}"
+            else
+              target="github.com/${GITHUB_REPOSITORY}"
+            fi
+
+            # Single-module repositories map onto themselves: nothing to rewrite, and
+            # skipping keeps the no-op case provably harmless.
+            if [[ "${name}" == "${target}" ]] ; then
+              echo "::notice title=coverage::module ${name} already matches the repository layout, left untouched"
+              continue
+            fi
+
+            echo "::notice title=coverage::rewriting ${name} -> ${target}"
             sed -i "s|${name}|${target}|" "${cover_files[@]}"
           done
       -

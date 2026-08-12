@@ -15,6 +15,12 @@ name: Changed paths
 #   fine and no checkout is needed) and on pushes (compared against github.event.before).
 #   Any other event gives no range to compare against, so it reports "changed".
 #
+#   CALLERS MUST GRANT "pull-requests: read" (at workflow or at job level), on top of
+#   "contents: read". A called workflow cannot hold more permission than its caller, and
+#   an omitted scope is 'none', so a caller that skips it gets its run rejected outright:
+#   "requires pull-requests: read but has none". That one is not covered by the fail-open
+#   behaviour below -- it is refused before any step runs.
+#
 #   Detection is ADVISORY and FAILS OPEN. Every uncertain situation resolves to
 #   "changed=true", i.e. do the work. Jobs must never be skipped as the side effect of a
 #   rate limit, a missing token scope or an API quirk. See the "Decide" step below for the
@@ -192,8 +198,14 @@ jobs:
         # be triggered by the push itself.
         #
         # continue-on-error is what makes the failure open rather than closed: a rate
-        # limit, a caller that forgot "pull-requests: read", an unreachable base commit,
-        # all leave the decision below free to fall back on doing the work.
+        # limit, an API hiccup, an unreachable base commit, all leave the decision below
+        # free to fall back on doing the work.
+        #
+        # NOT covered by that, because it never reaches this step: a caller that does not
+        # grant "pull-requests: read". A called workflow cannot hold more than its caller,
+        # and an omitted scope is 'none', so the run is REJECTED at validation time with
+        # "requires pull-requests: read but has none". Callers must grant it, at workflow
+        # or at job level.
         if: >-
           ${{
             inputs.force != 'true' &&
