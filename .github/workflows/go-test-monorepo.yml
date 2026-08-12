@@ -23,6 +23,16 @@ on:
 
         type: string
         required: false
+      no-race:
+        description: 'runs test without -race'
+        type: string
+        required: false
+        default: 'false'
+      timeout:
+        description: 'test timeout'
+        type: string
+        required: false
+        default: '30m'
 
 defaults:
   run:
@@ -160,19 +170,25 @@ jobs:
         # * go.work committed to git
         env:
           EXTRA_FLAGS: ${{ inputs.extra-flags }}
-        run: >
+          WANTS_NORACE: ${{ inputs.no-race }}
+          TIMEOUT: ${{ inputs.timeout }}
+        run: |
+          RACEOPT="-race"
+          if [[ "${WANTS_NORACE}" == "true" ]] ; then
+            RACEOPT=""
+          fi
 
-          gotestsum
-          --jsonfile 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json'
-          --
-          work
-          -race
-          -p 2
-          -count 1
-          -timeout=30m
-          -coverprofile='unit.coverage.${{ matrix.os }}-${{ matrix.go }}.out'
-          -covermode=atomic
-          -coverpkg='${{ needs.lint.outputs.coverpkg }}' ${EXTRA_FLAGS}
+          gotestsum \
+          --jsonfile 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json' \
+          -- \
+          work \
+          "${RACEOPT}" \
+          -p 2 \
+          -count 1 \
+          -timeout="${TIMEOUT}" \
+          -coverprofile='unit.coverage.${{ matrix.os }}-${{ matrix.go }}.out' \
+          -covermode=atomic \
+          -coverpkg='${{ needs.lint.outputs.coverpkg }}' ${EXTRA_FLAGS} \
           ./...
       - 
         name: Run unit tests on all modules (<go1.25 or no go.work) [monorepo]
@@ -183,17 +199,24 @@ jobs:
         env:
           EXTRA_FLAGS: ${{ inputs.extra-flags }}
           ALL_MODULES: ${{ needs.lint.outputs.all-modules }}
-        run: >
-          gotestsum
-          --jsonfile 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json'
-          --
-          -race
-          -p 2
-          -count 1
-          -timeout=30m
-          -coverprofile='unit.coverage.${{ matrix.os }}-${{ matrix.go }}.out'
-          -covermode=atomic
-          -coverpkg='${{ needs.lint.outputs.coverpkg }}' ${EXTRA_FLAGS}
+          WANTS_NORACE: ${{ inputs.no-race }}
+          TIMEOUT: ${{ inputs.timeout }}
+        run: |
+          RACEOPT="-race"
+          if [[ "${WANTS_NORACE}" == "true" ]] ; then
+            RACEOPT=""
+          fi
+
+          gotestsum \
+          --jsonfile 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json' \
+          -- \
+          "${RACEOPT}" \
+          -p 2 \
+          -count 1 \
+          -timeout="${TIMEOUT}" \
+          -coverprofile='unit.coverage.${{ matrix.os }}-${{ matrix.go }}.out' \
+          -covermode=atomic \
+          -coverpkg='${{ needs.lint.outputs.coverpkg }}' ${EXTRA_FLAGS} \
           ${ALL_MODULES}
       -
         name: Run unit tests

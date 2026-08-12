@@ -23,6 +23,16 @@ on:
 
         type: string
         required: false
+      no-race:
+        description: 'runs test without -race'
+        type: string
+        required: false
+        default: 'false'
+      timeout:
+        description: 'test timeout'
+        type: string
+        required: false
+        default: '30m'
 
 defaults:
   run:
@@ -95,17 +105,24 @@ jobs:
         name: Run unit tests
         env:
           EXTRA_FLAGS: ${{ inputs.extra-flags }}
-        run: >
-          gotestsum
-          --jsonfile 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json'
-          --
-          -race
-          -p 2
-          -count 1
-          -timeout=30m
-          -coverprofile='unit.coverage.${{ matrix.os }}-${{ matrix.go }}.out'
-          -covermode=atomic
-          -coverpkg="$(go list)"/... ${EXTRA_FLAGS}
+          WANTS_NORACE: ${{ inputs.no-race }}
+          TIMEOUT: ${{ inputs.timeout }}
+        run: |
+          RACEOPT="-race"
+          if [[ "${WANTS_NORACE}" == "true" ]] ; then
+            RACEOPT=""
+          fi
+
+          gotestsum \
+          --jsonfile 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json' \
+          -- \
+          "${RACEOPT}" \
+          -p 2 \
+          -count 1 \
+          -timeout="${TIMEOUT}" \
+          -coverprofile='unit.coverage.${{ matrix.os }}-${{ matrix.go }}.out' \
+          -covermode=atomic \
+          -coverpkg="$(go list)"/... ${EXTRA_FLAGS} \
           ./...
       -
         name: Upload coverage artifacts
