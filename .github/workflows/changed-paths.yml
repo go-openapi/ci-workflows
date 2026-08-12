@@ -11,6 +11,10 @@ name: Changed paths
 #   from starting at all, leaving a required check hanging at "Expected -- waiting for
 #   status to be reported".
 #
+#   Works on pull requests (through the pull request files API, so fork pull requests are
+#   fine and no checkout is needed) and on pushes (compared against github.event.before).
+#   Any other event gives no range to compare against, so it reports "changed".
+#
 #   Detection is ADVISORY and FAILS OPEN. Every uncertain situation resolves to
 #   "changed=true", i.e. do the work. Jobs must never be skipped as the side effect of a
 #   rate limit, a missing token scope or an API quirk. See the "Decide" step below for the
@@ -161,21 +165,41 @@ jobs:
             echo "PATHS_FILTER_SPEC"
           } >> "${GITHUB_OUTPUT}"
       -
+        name: Checkout, for the git comparison
+        # Only needed on push: a pull request is resolved through the API, with no
+        # checkout at all.
+        if: ${{ inputs.force != 'true' && github.event_name == 'push' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Enough history to reach the commit the push started from. A push to a
+          # protected branch lands a single squashed or merge commit, so this is already
+          # generous. Should the base be out of reach anyway -- a long direct push, a
+          # force push, a brand new branch -- detection errors out and we do the work.
+          fetch-depth: 50
+      -
         name: Detect changed paths
         id: filter
-        # Only pull requests carry a list of changed files we can rely on: the action
-        # reads it from the pull request files API of the BASE repository, so it works
-        # for fork pull requests (the read-only token is still a token on the base repo)
-        # and needs no checkout. On any other event -- push, schedule, workflow_dispatch,
-        # merge_group -- there is no such list and we do the work.
+        # Two ways in, both handled by the same action against the same glob spec:
+        #
+        #  * pull_request: the changed files come from the pull request files API of the
+        #    BASE repository, so this works for fork pull requests (a fork's read-only
+        #    token is still a token on the base repo) and needs no checkout.
+        #  * push: compared against github.event.before, from the checkout above.
+        #
+        # Any other event -- schedule, workflow_dispatch, workflow_run, merge_group --
+        # gives us no range to compare, so we do the work. Note workflow_run in that
+        # list: a workflow chained behind another one cannot filter this way, it has to
+        # be triggered by the push itself.
         #
         # continue-on-error is what makes the failure open rather than closed: a rate
-        # limit or a caller that forgot "pull-requests: read" leaves the decision below
-        # free to fall back on doing the work.
+        # limit, a caller that forgot "pull-requests: read", an unreachable base commit,
+        # all leave the decision below free to fall back on doing the work.
         if: >-
           ${{
             inputs.force != 'true' &&
-            (github.event_name == 'pull_request' || github.event_name == 'pull_request_target')
+            (github.event_name == 'pull_request' ||
+             github.event_name == 'pull_request_target' ||
+             github.event_name == 'push')
           }}
         continue-on-error: true
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -216,9 +240,13 @@ jobs:
             decision true "detection bypassed by the 'force' input"
           fi
 
-          if [[ "${EVENT_NAME}" != "pull_request" && "${EVENT_NAME}" != "pull_request_target" ]] ; then
-            decision true "event '${EVENT_NAME}' carries no reliable list of changed files"
-          fi
+          case "${EVENT_NAME}" in
+            pull_request|pull_request_target|push)
+              ;;
+            *)
+              decision true "event '${EVENT_NAME}' gives no range of changed files to compare"
+              ;;
+          esac
 
           if [[ "${CHANGED_FILES}" =~ ^[0-9]+$ ]] && (( CHANGED_FILES >= API_FILE_CAP )) ; then
             decision true \
