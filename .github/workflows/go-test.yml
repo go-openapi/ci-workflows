@@ -33,17 +33,47 @@ on:
         type: string
         required: false
         default: '30m'
+      extra-paths:
+        description: |
+          Extra glob patterns, one per line, that mark a change as relevant to the tests.
+
+          See the 'extra-paths' input of changed-paths.yml. Repositories with fixtures or a
+          codegen configuration outside of the go sources want to declare them here.
+        type: string
+        required: false
+        default: ''
+      force-run:
+        description: |
+          Set to 'true' to run the full matrix whatever changed, bypassing changed-paths detection.
+
+          Use it for scheduled or manually dispatched runs, and as the opt-out for repositories
+          that do not want path-based skipping.
+        type: string
+        required: false
+        default: 'false'
 
 defaults:
   run:
     shell: bash
 
 jobs:
+  changes:
+    # description: |
+    #   Decide whether this run has anything to test. Fails open: anything unclear runs
+    #   the whole suite. Skipped jobs cost no runner minute, but the workflow keeps
+    #   reporting, so "tests completed" stays usable as a required status check.
+    name: Changes
+    uses: ./.github/workflows/changed-paths.yml
+    with:
+      preset: go
+      extra-paths: ${{ inputs.extra-paths }}
+      force: ${{ inputs.force-run }}
+
   lint:
     name: Lint
+    needs: [changes]
+    if: ${{ needs.changes.outputs.changed == 'true' }}
     runs-on: ubuntu-latest
-    outputs:
-      test-matrix: ${{ steps.test-matrix.outputs.test-matrix }}
     steps:
       -
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -60,24 +90,20 @@ jobs:
           version: latest
           only-new-issues: true
           skip-cache: true
-      -
-        name: Test matrix
-        id: test-matrix
-        env:
-          MATRIX: |
-            ${{ inputs.test-matrix || '{"os":["ubuntu-latest","macos-latest","windows-latest"],"go": ["oldstable","stable"]}' }}
-        run: |
-          echo "test-matrix<<EOF" >> "${GITHUB_OUTPUT}"
-          printenv MATRIX >> "${GITHUB_OUTPUT}"
-          echo "EOF" >> "${GITHUB_OUTPUT}"
 
   test:
     name: Unit tests
     runs-on: ${{ matrix.os }}
-    needs: [lint]
+    needs: [changes, lint]
+    if: ${{ needs.changes.outputs.changed == 'true' }}
 
     strategy:
-      matrix: ${{ fromJSON(needs.lint.outputs.test-matrix) }}
+      # Read straight from the inputs: routing it through a job output would make the
+      # matrix depend on that job having run, and lint is now skippable.
+      #
+      # Mind the absence of a space after '"go":': a ": " sequence would end the plain
+      # YAML scalar and the whole expression would fail to parse.
+      matrix: ${{ fromJSON(inputs.test-matrix || '{"os":["ubuntu-latest","macos-latest","windows-latest"],"go":["oldstable","stable"]}') }}
 
     steps:
       -
@@ -143,23 +169,54 @@ jobs:
           retention-days: 1
 
   fuzz-test:
+    needs: [changes]
+    if: ${{ needs.changes.outputs.changed == 'true' }}
     uses: ./.github/workflows/fuzz-test.yml
 
   test-complete:
     # description: |
     #   Be explicit about all tests being passed. This allows for setting up only a few status checks on PRs.
+    #
+    #   This is the gate: it is the one job callers pin in their branch protection rules, so it
+    #   MUST report on every run, including the runs where everything else was skipped.
+    #
+    #   Hence "always()" -- with the default condition the job would inherit the skip of its
+    #   dependencies and never report, which is the very hole we are closing -- and an assertion
+    #   on the negative: fail on 'failure' and 'cancelled', pass on 'skipped'. A job correctly
+    #   skipped is then indistinguishable from a job that had nothing to do.
+    #
+    #   Every job belongs in "needs", "changes" included: a job skipped because ITS dependency
+    #   failed reports 'skipped', so leaving the failing one out would turn the gate green over
+    #   an untested pull request.
     name: tests completed
-    needs: [test,fuzz-test]
+    needs: [changes, lint, test, fuzz-test]
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
+      -
+        name: Report upstream job results
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "::group::upstream job results"
+          printenv RESULTS
+          echo "::endgroup::"
+      -
+        name: Fail on any unsuccessful upstream job
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "::error title=tests::at least one job failed or was cancelled"
+          exit 1
       -
         name: Tests completed
         run: |
           echo "::notice title=Success::All tests passed"
 
   collect-coverage:
-    needs: [test-complete]
-    if: ${{ !cancelled() && needs.test-complete.result == 'success' }}
+    # Guarded on the tests themselves: "tests completed" is now green on runs where the
+    # matrix never ran, and there would be no coverage artifact to collect.
+    needs: [test]
+    if: ${{ !cancelled() && needs.test.result == 'success' }}
     uses: ./.github/workflows/collect-coverage.yml
 
   collect-reports:

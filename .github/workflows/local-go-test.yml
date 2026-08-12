@@ -14,7 +14,28 @@ on:
 
   pull_request:
 
+  # Manual trigger, to exercise changed-paths detection by hand.
+  #
+  # A dispatch run carries no list of changed files, so detection resolves to "run
+  # everything" whatever is chosen here. What the input tells apart is WHY: with
+  # 'false' the run reports "event 'workflow_dispatch' carries no reliable list of
+  # changed files", with 'true' it reports "detection bypassed by the 'force' input"
+  # -- which is how we check that the input actually reaches changed-paths.yml.
+  workflow_dispatch:
+    inputs:
+      force-run:
+        description: 'bypass changed-paths detection'
+        type: choice
+        required: false
+        default: 'false'
+        options:
+          - 'false'
+          - 'true'
+
 jobs:
   test:
     uses: ./.github/workflows/go-test.yml
+    with:
+      # Empty on every trigger but workflow_dispatch, where the choice input is a string.
+      force-run: ${{ inputs.force-run || 'false' }}
     secrets: inherit
