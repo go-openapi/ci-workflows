@@ -139,10 +139,12 @@ jobs:
             RACEOPT=""
           fi
 
+          # ${RACEOPT} unquoted on purpose: quoted, an empty value passes '' as a package
+          # pattern, and go test then runs nothing and still exits 0.
           gotestsum \
           --jsonfile 'unit.report.${{ matrix.os }}-${{ matrix.go }}.json' \
           -- \
-          "${RACEOPT}" \
+          ${RACEOPT} \
           -p 2 \
           -count 1 \
           -timeout="${TIMEOUT}" \
