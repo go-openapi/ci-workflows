@@ -2,7 +2,9 @@ name: Changed paths
 
 # description: |
 #   Tells callers whether a pull request touches anything relevant to a given concern:
-#   go sources for the 'go' preset, documentation sources for the 'doc' preset.
+#   go sources for the 'go' preset, documentation sources for the 'doc' preset, an npm
+#   application for the 'front-end' preset. The 'none' preset watches nothing on its own,
+#   for a concern no preset describes: the caller states every path through extra-paths.
 #
 #   The point is to let a workflow skip its expensive jobs on a pull request that cannot
 #   affect them, while still reporting a status: a job skipped by an "if:" costs no runner
@@ -35,20 +37,28 @@ on:
     inputs:
       preset:
         description: |
-          Which set of paths to watch: 'go' or 'doc'.
+          Which set of paths to watch: 'go', 'doc', 'front-end' or 'none'.
 
           'go' watches go sources and anything that alters a build or a test outcome.
           'doc' watches markdown, the hugo doc site and the markdown/spellcheck linter
           configurations.
+          'front-end' watches the sources, lock file and tool configuration of an npm
+          application -- whatever decides what `npm ci` installs and what the build emits.
 
-          Both presets are deliberately generous: one pattern too many only means the work
+          The presets are deliberately generous: one pattern too many only means the work
           runs when it need not, one pattern too few means it is silently skipped when it
           should have run.
+
+          'none' watches nothing at all, and is the escape hatch for a concern no preset
+          describes: the caller redefines the whole set through extra-paths, which is then
+          required. Being exact is the caller's problem, and the trade-off above says a
+          preset is the better answer whenever one fits.
         type: string
         required: true
       extra-paths:
         description: |
-          Extra glob patterns to watch on top of the preset, one per line.
+          Extra glob patterns to watch on top of the preset, one per line. The whole set
+          under the 'none' preset, where they are the only patterns and cannot be empty.
 
           Repositories that do not follow the go-openapi layout declare the difference here,
           e.g. for a doc site whose content sits at the repository root:
@@ -125,6 +135,31 @@ jobs:
           .spellcheck.yaml
           .wordlist.txt'
 
+          # An npm application: sources in whichever dialect and framework, the tool
+          # configuration, and above all the lock file -- a dependency bump changes no
+          # source at all and is exactly what the front-end lane exists to catch.
+          FRONT_END_PATHS='**/*.ts
+          **/*.tsx
+          **/*.js
+          **/*.jsx
+          **/*.mjs
+          **/*.cjs
+          **/*.svelte
+          **/*.vue
+          **/*.css
+          **/*.scss
+          **/*.html
+          **/package.json
+          **/package-lock.json
+          **/npm-shrinkwrap.json
+          **/yarn.lock
+          **/pnpm-lock.yaml
+          **/tsconfig*.json
+          **/vite.config.*
+          **/vitest.config.*
+          **/svelte.config.*
+          .github/workflows/**'
+
           case "${PRESET}" in
             go)
               base="${GO_PATHS}"
@@ -132,10 +167,18 @@ jobs:
             doc)
               base="${DOC_PATHS}"
               ;;
+            front-end)
+              base="${FRONT_END_PATHS}"
+              ;;
+            none)
+              # Everything comes from extra-paths. The emptiness check below is what keeps
+              # this from degenerating into a filter that matches nothing.
+              base=''
+              ;;
             *)
               # A bad preset is a caller mistake, not an uncertain detection: fail loudly
               # rather than fall back on watching nothing.
-              echo "::error title=changed-paths::unknown preset '${PRESET}': expected 'go' or 'doc'"
+              echo "::error title=changed-paths::unknown preset '${PRESET}': expected 'go', 'doc', 'front-end' or 'none'"
               exit 1
               ;;
           esac
@@ -160,6 +203,15 @@ jobs:
 
           printf '%s\n' "${base}" | emit_globs
           printenv EXTRA_PATHS | emit_globs
+
+          # A spec holding its "changed:" header and nothing else watches no path, and
+          # "no watched path changed" is reported as a skip: the caller would get a gate
+          # that never runs anything. Only 'none' with an empty extra-paths can land here,
+          # and that is a caller mistake, so it fails the same way a bad preset does.
+          if (( $(wc -l < "${spec}") < 2 )) ; then
+            echo "::error title=changed-paths::preset '${PRESET}' watches no path: state the paths to watch through 'extra-paths'"
+            exit 1
+          fi
 
           echo "::group::paths filter spec (preset: ${PRESET})"
           cat "${spec}"
