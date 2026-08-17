@@ -6,7 +6,10 @@ permissions:
 # description: |
 #   Build a github release on either pushed tag or a manual workflow call.
 #
-#   At this moment, the only available asset is a release note.
+#   By default, the only available asset is a release note.
+#
+#   When goreleaser is enabled, the release notes are handed over to goreleaser,
+#   which builds the release assets and publishes the github release itself.
 
 on:
   workflow_call:
@@ -39,6 +42,110 @@ on:
         required: false
         default: https://raw.githubusercontent.com/go-openapi/ci-workflows/refs/heads/master/.cliff-monorepo.toml
         description: 'URL to the remote git-cliff template used to generate module-specific release notes'
+      enable-goreleaser:
+        type: string
+        required: false
+        default: 'false'
+        description: |
+          Enable goreleaser to build the release assets.
+
+          When enabled, this workflow prepares the release notes as usual, then hands them over to
+          goreleaser, which builds the assets and publishes the github release.
+
+          The caller repository must provide its own goreleaser config (see goreleaser-config).
+      goreleaser-config:
+        type: string
+        required: false
+        default: '.goreleaser.yml'
+        description: 'Path to the goreleaser config file in the caller repository'
+      goreleaser-version:
+        type: string
+        required: false
+        default: '~> v2'
+        description: 'Version constraint for the goreleaser distribution to install'
+      goreleaser-args:
+        type: string
+        required: false
+        default: 'release --clean --fail-fast'
+        description: |
+          Arguments passed to goreleaser.
+
+          The --config and --release-notes flags are appended by this workflow.
+      goreleaser-env:
+        type: string
+        required: false
+        default: ''
+        description: |
+          Additional non-secret environment for goreleaser, as newline-separated KEY=VALUE pairs.
+
+          Secrets must never be passed here: use the dedicated secrets of this workflow instead.
+      enable-artifact-signing:
+        type: string
+        required: false
+        default: 'true'
+        description: |
+          Import the bot PGP key before running goreleaser, so that a "signs" section
+          in the goreleaser config may sign the release assets.
+
+          When enabled, you must pass the GPG secrets to this workflow.
+      enable-upx:
+        type: string
+        required: false
+        default: 'false'
+        description: |
+          Install the UPX executable packer before running goreleaser.
+
+          Required by goreleaser configs which declare an "upx" section.
+    secrets:
+      gpg-private-key:
+        description: |
+          GPG private key in armored format for signing release assets.
+
+          Default for go-openapi: CI_BOT_GPG_PRIVATE_KEY
+
+          Required when enable-artifact-signing is true.
+        required: false
+      gpg-passphrase:
+        description: |
+          Passphrase to unlock the GPG private key.
+
+          Default for go-openapi: CI_BOT_GPG_PASSPHRASE
+
+          Exposed to goreleaser as GPG_PASSPHRASE.
+        required: false
+      gpg-fingerprint:
+        description: |
+          Fingerprint of the GPG signing key (spaces removed).
+
+          Default for go-openapi: CI_BOT_SIGNING_KEY
+
+          Exposed to goreleaser as GPG_FINGERPRINT.
+        required: false
+      nfpm-gpg-private-key:
+        description: |
+          Standalone RSA private key in armored format, to sign deb and rpm packages.
+
+          Default for go-openapi: GPG_NFPM_KEY
+
+          Exposed to goreleaser as GPG_NFPM_KEY_FILE, which holds the path to the key file.
+          Optional: only needed by goreleaser configs which declare a signed "nfpms" section.
+        required: false
+      discord-webhook-id:
+        description: |
+          ID of the discord webhook used to announce a release.
+
+          Default for go-openapi: DISCORD_WEBHOOK_ID
+
+          Optional: only needed by goreleaser configs which announce on discord.
+        required: false
+      discord-webhook-token:
+        description: |
+          Token of the discord webhook used to announce a release.
+
+          Default for go-openapi: DISCORD_WEBHOOK_TOKEN
+
+          Optional: only needed by goreleaser configs which announce on discord.
+        required: false
 
 jobs:
   gh-release:
@@ -61,6 +168,19 @@ jobs:
           check-latest: true
           cache: true
           cache-dependency-path: '**/go.sum'
+      -
+        name: Check goreleaser config [goreleaser]
+        # Fail before spending time on the release notes: a missing config is a caller mistake.
+        if: ${{ inputs.enable-goreleaser == 'true' }}
+        env:
+          GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
+        run: |
+          if [[ ! -f "${GORELEASER_CONFIG}" ]] ; then
+            echo "::error title=goreleaser::goreleaser is enabled but the config file '${GORELEASER_CONFIG}' is not in this repository"
+            exit 1
+          fi
+
+          echo "::notice title=goreleaser::Using goreleaser config '${GORELEASER_CONFIG}'"
       -
         name: Extract tag message
         id: get-message
@@ -159,6 +279,7 @@ jobs:
           set -x
 
           LOCAL_TEMPLATE_LOCATION="${RUNNER_TEMP:-/tmp}/.cliff-monorepo.toml"
+          NOTES_FILE="${RUNNER_TEMP:-/tmp}/release-notes.md"
           ROOT_MODULE=$(echo "${ROOT_MODULE}"|sed -E 's/\/v[0-9]+$//')
 
           root_dir="$(git rev-parse --show-toplevel)"
@@ -298,17 +419,10 @@ jobs:
             echo "# Per-module changes"
             echo ""
             cat "${tmp_dir}"/notes-*.md
-          } > "${tmp_dir}/final-notes.md"
-
-          # Save to output
-          {
-            echo "content<<EOF"
-            cat "${tmp_dir}/final-notes.md"
-            echo 'EOF'
-          } >> "${GITHUB_OUTPUT}"
+          } > "${NOTES_FILE}"
 
           # Log notes
-          cat "${tmp_dir}/final-notes.md"
+          cat "${NOTES_FILE}"
 
           # Cleanup
           rm -rf "${tmp_dir}"
@@ -326,6 +440,8 @@ jobs:
           CLIFF_CONFIG: ${{ inputs.cliff-config }}
           CLIFF_CONFIG_URL: ${{ inputs.cliff-config-url }}
         run: |
+          NOTES_FILE="${RUNNER_TEMP:-/tmp}/release-notes.md"
+
           if [[ "${CONFIG_EXISTS}" == "true" ]] ; then
             cliff_config_flag="--config ${CLIFF_CONFIG}"
           else
@@ -333,20 +449,100 @@ jobs:
           fi
 
           # shellcheck disable=SC2086 # we want the config flag to expand
-          NOTES=$(git-cliff \
+          git-cliff \
               ${cliff_config_flag} \
               --latest \
-              --with-tag-message "${TAG_MESSAGE}")
+              --with-tag-message "${TAG_MESSAGE}" \
+              --output "${NOTES_FILE}"
 
-          {
-            echo "content<<EOF"
-            echo "${NOTES}"
-            echo 'EOF'
-          } >> "${GITHUB_OUTPUT}"
+          # Log notes
+          cat "${NOTES_FILE}"
+      -
+        name: Configure bot credentials [goreleaser]
+        if: ${{ inputs.enable-goreleaser == 'true' && inputs.enable-artifact-signing == 'true' }}
+        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@768e1ac7e37ab6586242b03a8023615dfc8da6a2 # v1.4.17
+        # This is using the GPG signature of bot-go-openapi.
+        #
+        # For go-openapi repos (using secrets: inherit):
+        #   Falls back to: CI_BOT_GPG_PRIVATE_KEY, CI_BOT_GPG_PASSPHRASE, CI_BOT_SIGNING_KEY
+        #
+        # For other orgs: explicitly pass secrets with your custom names
+        #
+        # The key is only imported into the keyring: goreleaser signs the assets, git signs nothing here.
+        with:
+          enable-gpg-signing: 'true'
+          gpg-private-key: ${{ secrets.gpg-private-key || secrets.CI_BOT_GPG_PRIVATE_KEY }}
+          gpg-passphrase: ${{ secrets.gpg-passphrase || secrets.CI_BOT_GPG_PASSPHRASE }}
+          gpg-fingerprint: ${{ secrets.gpg-fingerprint || secrets.CI_BOT_SIGNING_KEY }}
+          enable-tag-signing: 'false'
+          enable-commit-signing: 'false'
+      -
+        name: Write nfpm signing key [goreleaser]
+        if: ${{ inputs.enable-goreleaser == 'true' }}
+        id: nfpm-key
+        env:
+          NFPM_GPG_KEY: ${{ secrets.nfpm-gpg-private-key || secrets.GPG_NFPM_KEY }}
+        run: |
+          # nfpm uses go's openpgp library, which handles neither DSA keys nor subkey-only exports.
+          # Signing deb and rpm packages therefore requires a standalone RSA key, distinct from the
+          # key used to sign the other release assets.
+          if [[ -z "${NFPM_GPG_KEY}" ]] ; then
+            echo "::notice title=goreleaser::No nfpm signing key provided. Skipped."
+            exit 0
+          fi
+
+          NFPM_KEY_FILE="$(mktemp -t gpg-nfpm-key-XXXXXX.asc)"
+          printenv NFPM_GPG_KEY > "${NFPM_KEY_FILE}"
+          echo "path=${NFPM_KEY_FILE}" >> "${GITHUB_OUTPUT}"
+
+          echo "::notice title=goreleaser::nfpm signing key written to ${NFPM_KEY_FILE}"
+      -
+        name: Install UPX [goreleaser]
+        if: ${{ inputs.enable-goreleaser == 'true' && inputs.enable-upx == 'true' }}
+        uses: crazy-max/ghaction-upx@c83f378efc804f828e988debb88ed6116feb2368 # v4.0.0
+        with:
+          install-only: true
+      -
+        name: Export additional environment [goreleaser]
+        if: ${{ inputs.enable-goreleaser == 'true' && inputs.goreleaser-env != '' }}
+        env:
+          GORELEASER_ENV: ${{ inputs.goreleaser-env }}
+        run: |
+          # Non-secret KEY=VALUE pairs, one per line, forwarded to the goreleaser step.
+          while IFS= read -r line ; do
+            [[ -z "${line}" || "${line}" =~ ^[[:space:]]*# ]] && continue
+
+            if [[ ! "${line}" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] ; then
+              echo "::error title=goreleaser::Invalid entry in goreleaser-env: '${line}'. Expected KEY=VALUE"
+              exit 1
+            fi
+
+            echo "${line}" >> "${GITHUB_ENV}"
+            echo "::notice title=goreleaser::Exported ${line%%=*}"
+          done <<< "${GORELEASER_ENV}"
+      -
+        name: Build and publish release [goreleaser]
+        if: ${{ inputs.enable-goreleaser == 'true' }}
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          version: ${{ inputs.goreleaser-version }}
+          args: ${{ inputs.goreleaser-args }} --config ${{ inputs.goreleaser-config }} --release-notes ${{ runner.temp }}/release-notes.md
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          # The release tag is authoritative. Mono-repo releases push several tags on the same commit
+          # (e.g. v0.6.0 and codegen/v0.6.0): left to itself, goreleaser would resolve an arbitrary one.
+          GORELEASER_CURRENT_TAG: ${{ inputs.tag }}
+          GPG_PASSPHRASE: ${{ secrets.gpg-passphrase || secrets.CI_BOT_GPG_PASSPHRASE }}
+          GPG_FINGERPRINT: ${{ secrets.gpg-fingerprint || secrets.CI_BOT_SIGNING_KEY }}
+          GPG_NFPM_KEY_FILE: ${{ steps.nfpm-key.outputs.path }}
+          DISCORD_WEBHOOK_ID: ${{ secrets.discord-webhook-id || secrets.DISCORD_WEBHOOK_ID }}
+          DISCORD_WEBHOOK_TOKEN: ${{ secrets.discord-webhook-token || secrets.DISCORD_WEBHOOK_TOKEN }}
       -
         name: Create github release
+        # When goreleaser is enabled, it publishes the release itself.
+        if: ${{ inputs.enable-goreleaser != 'true' }}
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
-          body: ${{ inputs.is-monorepo == 'true' && steps.notes-monorepo.outputs.content || steps.notes.outputs.content }}
+          body_path: ${{ runner.temp }}/release-notes.md
           tag_name: ${{ inputs.tag }}
           generate_release_notes: false # skip auto-generated release notes from github API

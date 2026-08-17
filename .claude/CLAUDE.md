@@ -130,6 +130,12 @@ Releases can be triggered in two ways:
 
 Release notes are generated using [git-cliff](https://git-cliff.org/) with configuration in `.cliff.toml`.
 
+Both paths converge on `release.yml`, which publishes the release. By default the release only carries its notes, and is
+published by the GitHub release action. When `enable-goreleaser` is on, the notes are instead handed over to goreleaser
+(`--release-notes`), which builds the assets and publishes the release itself. There is no shared goreleaser config: each
+consuming repo owns its `.goreleaser.yml`. See the "Releasing assets with goreleaser" section of
+`.github/workflows/README.md` for the input/secret surface and the constraints a local config must respect.
+
 ### Auto-merge Logic
 
 The `auto-merge.yml` workflow handles two bot types:

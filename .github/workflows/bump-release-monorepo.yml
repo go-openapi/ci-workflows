@@ -69,6 +69,60 @@ on:
         required: false
         default: https://raw.githubusercontent.com/go-openapi/ci-workflows/refs/heads/master/.cliff-monorepo.toml
         description: 'URL to the remote git-cliff template used to generate module-specific release notes'
+      enable-goreleaser:
+        type: string
+        required: false
+        default: 'false'
+        description: |
+          Enable goreleaser to build the release assets.
+
+          The caller repository must provide its own goreleaser config (see goreleaser-config).
+
+          goreleaser runs once, at the root of the repository, against the root module tag:
+          the mono-repo support of goreleaser is not used here.
+      goreleaser-config:
+        type: string
+        required: false
+        default: '.goreleaser.yml'
+        description: 'Path to the goreleaser config file in the caller repository'
+      goreleaser-version:
+        type: string
+        required: false
+        default: '~> v2'
+        description: 'Version constraint for the goreleaser distribution to install'
+      goreleaser-args:
+        type: string
+        required: false
+        default: 'release --clean --fail-fast'
+        description: |
+          Arguments passed to goreleaser.
+
+          The --config and --release-notes flags are appended by the release workflow.
+      goreleaser-env:
+        type: string
+        required: false
+        default: ''
+        description: |
+          Additional non-secret environment for goreleaser, as newline-separated KEY=VALUE pairs.
+
+          Secrets must never be passed here: use the dedicated secrets of this workflow instead.
+      enable-artifact-signing:
+        type: string
+        required: false
+        default: 'true'
+        description: |
+          Import the bot PGP key before running goreleaser, so that a "signs" section
+          in the goreleaser config may sign the release assets.
+
+          When enabled, you must pass the GPG secrets to this workflow.
+      enable-upx:
+        type: string
+        required: false
+        default: 'false'
+        description: |
+          Install the UPX executable packer before running goreleaser.
+
+          Required by goreleaser configs which declare an "upx" section.
     secrets:
       gpg-private-key:
         description: |
@@ -109,6 +163,30 @@ on:
           Default for go-openapi: CI_BOT_APP_PRIVATE_KEY
 
           Required to create pull requests as the bot user.
+        required: false
+      nfpm-gpg-private-key:
+        description: |
+          Standalone RSA private key in armored format, to sign deb and rpm packages.
+
+          Default for go-openapi: GPG_NFPM_KEY
+
+          Optional: only needed by goreleaser configs which declare a signed "nfpms" section.
+        required: false
+      discord-webhook-id:
+        description: |
+          ID of the discord webhook used to announce a release.
+
+          Default for go-openapi: DISCORD_WEBHOOK_ID
+
+          Optional: only needed by goreleaser configs which announce on discord.
+        required: false
+      discord-webhook-token:
+        description: |
+          Token of the discord webhook used to announce a release.
+
+          Default for go-openapi: DISCORD_WEBHOOK_TOKEN
+
+          Optional: only needed by goreleaser configs which announce on discord.
         required: false
 
 jobs:
@@ -152,10 +230,20 @@ jobs:
       enable-tag-signing: ${{ inputs.enable-tag-signing }}
       cliff-config: ${{ inputs.cliff-config }}
       cliff-config-url: ${{ inputs.cliff-config-url }}
+      enable-goreleaser: ${{ inputs.enable-goreleaser }}
+      goreleaser-config: ${{ inputs.goreleaser-config }}
+      goreleaser-version: ${{ inputs.goreleaser-version }}
+      goreleaser-args: ${{ inputs.goreleaser-args }}
+      goreleaser-env: ${{ inputs.goreleaser-env }}
+      enable-artifact-signing: ${{ inputs.enable-artifact-signing }}
+      enable-upx: ${{ inputs.enable-upx }}
     secrets:
       gpg-private-key: ${{ secrets.gpg-private-key || secrets.CI_BOT_GPG_PRIVATE_KEY }}
       gpg-passphrase: ${{ secrets.gpg-passphrase || secrets.CI_BOT_GPG_PASSPHRASE }}
       gpg-fingerprint: ${{ secrets.gpg-fingerprint || secrets.CI_BOT_SIGNING_KEY }}
+      nfpm-gpg-private-key: ${{ secrets.nfpm-gpg-private-key || secrets.GPG_NFPM_KEY }}
+      discord-webhook-id: ${{ secrets.discord-webhook-id || secrets.DISCORD_WEBHOOK_ID }}
+      discord-webhook-token: ${{ secrets.discord-webhook-token || secrets.DISCORD_WEBHOOK_TOKEN }}
 
   determine-next-tag:
     name: Determine next tag [monorepo]
@@ -410,4 +498,18 @@ jobs:
       cliff-config-url: ${{ inputs.cliff-config-url }}
       monorepo-cliff-template: ${{ inputs.monorepo-cliff-template }}
       monorepo-cliff-template-url: ${{ inputs.monorepo-cliff-template-url }}
-    secrets: inherit
+      enable-goreleaser: ${{ inputs.enable-goreleaser }}
+      goreleaser-config: ${{ inputs.goreleaser-config }}
+      goreleaser-version: ${{ inputs.goreleaser-version }}
+      goreleaser-args: ${{ inputs.goreleaser-args }}
+      goreleaser-env: ${{ inputs.goreleaser-env }}
+      enable-artifact-signing: ${{ inputs.enable-artifact-signing }}
+      enable-upx: ${{ inputs.enable-upx }}
+    # NOTE: explicit secrets, not "inherit": callers from another org cannot rely on inheritance.
+    secrets:
+      gpg-private-key: ${{ secrets.gpg-private-key || secrets.CI_BOT_GPG_PRIVATE_KEY }}
+      gpg-passphrase: ${{ secrets.gpg-passphrase || secrets.CI_BOT_GPG_PASSPHRASE }}
+      gpg-fingerprint: ${{ secrets.gpg-fingerprint || secrets.CI_BOT_SIGNING_KEY }}
+      nfpm-gpg-private-key: ${{ secrets.nfpm-gpg-private-key || secrets.GPG_NFPM_KEY }}
+      discord-webhook-id: ${{ secrets.discord-webhook-id || secrets.DISCORD_WEBHOOK_ID }}
+      discord-webhook-token: ${{ secrets.discord-webhook-token || secrets.DISCORD_WEBHOOK_TOKEN }}
