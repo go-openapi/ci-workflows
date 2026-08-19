@@ -1,4 +1,6 @@
-github.com/go-openapi/ci-workflows/sample-monorepo v0.0.0-20260730015951-527ef3fa79d4 h1:hzJjuuc8hjyKjEimwBdwTx4zLG/+FHkDzIFYQuHw0VI=
-github.com/go-openapi/ci-workflows/sample-monorepo v0.0.0-20260730015951-527ef3fa79d4/go.mod h1:H70Kb9h3wLxEDm/BRnPXEfbFzQ5vMuWnGcCh8g/RvBU=
+github.com/go-openapi/ci-workflows v0.6.0 h1:UA5FL0b6tYEJhZO8yM08DdYTDBjn70AxT+9Wt2qddxo=
+github.com/go-openapi/ci-workflows v0.6.0/go.mod h1:s3M+Yzc8hGvTwRp0B6fdXh26x2whpj4Ax7DDrJ9YJM8=
+github.com/go-openapi/ci-workflows/sample-monorepo v0.0.0-20260817015704-69ea5ee4c72a h1:a9SCFME0LwyQZil3pRV0JihZxf0UX/P2w4J9BKeaFnM=
+github.com/go-openapi/ci-workflows/sample-monorepo v0.0.0-20260817015704-69ea5ee4c72a/go.mod h1:OA9D7MNRmWbauYhFBjAOJhiFkRCe2Lk6h62VwyH0rZ0=
 github.com/go-openapi/testify/v2 v2.6.1 h1:6CNJhTjMzgaeaH8WhshcsZNPIvRemiOcFpU7seO/y7Q=
 github.com/go-openapi/testify/v2 v2.6.1/go.mod h1:SgsVHtfooshd0tublTtJ50FPKhujf47YRqauXXOUxfw=
