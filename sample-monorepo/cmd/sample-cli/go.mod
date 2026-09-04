@@ -1,6 +1,6 @@
 module github.com/go-openapi/ci-workflows/sample-monorepo/cmd/sample-cli
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/go-openapi/ci-workflows/sample-monorepo v0.0.0-20260817015704-69ea5ee4c72a
