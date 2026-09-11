@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/go-openapi/ci-workflows/sample-monorepo v0.0.0-20260817015704-69ea5ee4c72a
-	github.com/go-openapi/testify/v2 v2.7.0
+	github.com/go-openapi/testify/v2 v2.8.0
 )
 
 require github.com/go-openapi/ci-workflows v0.6.0 // indirect
