@@ -118,7 +118,7 @@ jobs:
             } > "${file}"
           done
       - name: Configure bot credentials
-        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@c0f86e95429fd84e4c96786d630422e9221f556a # v1.4.19
+        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@2a20802fd4ec9b9fd4732b832c91fec9c4aae777 # v1.4.20
         id: bot-credentials
         # For go-openapi repos (using secrets: inherit):
         #   Falls back to: CI_BOT_APP_ID, CI_BOT_APP_PRIVATE_KEY, CI_BOT_GPG_PRIVATE_KEY, etc.
@@ -183,7 +183,7 @@ jobs:
       - name: Auto-approve PR
         run: gh pr review --approve "$PR_URL"
       - name: Wait for all workflow runs to complete
-        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@c0f86e95429fd84e4c96786d630422e9221f556a # v1.4.19
+        uses: go-openapi/gh-actions/ci-jobs/wait-pending-jobs@2a20802fd4ec9b9fd4732b832c91fec9c4aae777 # v1.4.20
         with:
           pr-url: ${{ env.PR_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
