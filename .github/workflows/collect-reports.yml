@@ -127,7 +127,7 @@ jobs:
       # They also handle the storage of past test reports, so as to assess flaky tests.
       -
         name: Publish Test Summary Results
-        uses: ctrf-io/github-test-reporter@7974087018bf4857cf5a9d78723e152038c3fa31 # v1.3.0
+        uses: ctrf-io/github-test-reporter@dbb08957b5b2af918b39136ab2c5532002c7649b # v1.3.2
         with:
           report-path: 'reports/ctrf_report_*.json'
           use-suite-name: true
