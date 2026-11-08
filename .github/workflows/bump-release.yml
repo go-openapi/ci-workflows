@@ -114,7 +114,7 @@ jobs:
       -
         name: Determine next tag
         id: bump-release
-        uses: go-openapi/gh-actions/ci-jobs/next-tag@2a20802fd4ec9b9fd4732b832c91fec9c4aae777 # v1.4.20
+        uses: go-openapi/gh-actions/ci-jobs/next-tag@7214568a78abfdffa0510b07922b38353d8a811e # v1.4.21
         with:
           bump-patch: ${{ steps.bump-check.outputs.bump-patch }}
           bump-minor: ${{ steps.bump-check.outputs.bump-minor }}
@@ -122,7 +122,7 @@ jobs:
       -
         name: Configure bot credentials
         if: ${{ inputs.enable-tag-signing == 'true' }}
-        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@2a20802fd4ec9b9fd4732b832c91fec9c4aae777 # v1.4.20
+        uses: go-openapi/gh-actions/ci-jobs/bot-credentials@7214568a78abfdffa0510b07922b38353d8a811e # v1.4.21
         # This is using the GPG signature of bot-go-openapi.
         #
         # For go-openapi repos (using secrets: inherit):
