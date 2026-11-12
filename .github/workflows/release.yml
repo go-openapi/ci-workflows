@@ -91,7 +91,7 @@ jobs:
         name: Detect go mono-repo
         if: ${{ inputs.is-monorepo == 'true' }}
         id: detect-monorepo
-        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@7214568a78abfdffa0510b07922b38353d8a811e # v1.4.21
+        uses: go-openapi/gh-actions/ci-jobs/detect-go-monorepo@285d940659e17cd0e2946a1ecd3b90c4d326def7 # v1.4.22
       -
         name: Install git-cliff
         uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
