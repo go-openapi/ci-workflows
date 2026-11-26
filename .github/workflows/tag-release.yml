@@ -38,4 +38,3 @@ jobs:
       tag: ${{ github.ref_name }}
       cliff-config: ${{ inputs.cliff-config }}
       cliff-config-url: ${{ inputs.cliff-config-url }}
-    secrets: inherit

@@ -42,4 +42,7 @@ jobs:
       bump-type: ${{ inputs.bump-type }}
       tag-message-title: ${{ inputs.tag-message-title }}
       tag-message-body: ${{ inputs.tag-message-body }}
-    secrets: inherit
+    secrets:
+      gpg-private-key: ${{ secrets.CI_BOT_GPG_PRIVATE_KEY }}
+      gpg-passphrase: ${{ secrets.CI_BOT_GPG_PASSPHRASE }}
+      gpg-fingerprint: ${{ secrets.CI_BOT_SIGNING_KEY }}

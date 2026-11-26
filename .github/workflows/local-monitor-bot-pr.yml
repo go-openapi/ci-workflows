@@ -18,4 +18,5 @@ jobs:
       pull-requests: write
       statuses: read
     uses: ./.github/workflows/monitor-bot-pr.yml
-    secrets: inherit
+    secrets:
+      bot-pat: ${{ secrets.CI_BOT_PAT }}

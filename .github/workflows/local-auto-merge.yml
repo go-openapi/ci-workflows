@@ -15,4 +15,3 @@ jobs:
       contents: write
       pull-requests: write
     uses: ./.github/workflows/auto-merge.yml
-    secrets: inherit

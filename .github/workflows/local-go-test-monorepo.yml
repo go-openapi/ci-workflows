@@ -16,4 +16,3 @@ on:
 jobs:
   go-monorepo-test:
     uses: ./.github/workflows/go-test-monorepo.yml
-    secrets: inherit

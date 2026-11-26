@@ -125,6 +125,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       -
         name: Setup Go
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
@@ -170,6 +171,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       -
         name: Determine bump type
         id: bump-check
@@ -232,6 +234,8 @@ jobs:
         name: Checkout repository
         if: ${{ needs.prepare-modules.outputs.pull-request-operation  != 'none' && needs.prepare-modules.outputs.pull-request-operation != 'closed' }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       -
         name: Wait for PR to be merged
         if: ${{ needs.prepare-modules.outputs.pull-request-operation  != 'none' && needs.prepare-modules.outputs.pull-request-operation != 'closed' }}
@@ -410,4 +414,3 @@ jobs:
       cliff-config-url: ${{ inputs.cliff-config-url }}
       monorepo-cliff-template: ${{ inputs.monorepo-cliff-template }}
       monorepo-cliff-template-url: ${{ inputs.monorepo-cliff-template-url }}
-    secrets: inherit

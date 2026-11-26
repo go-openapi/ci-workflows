@@ -186,4 +186,3 @@ jobs:
       tag: ${{ needs.tag-release.outputs.next-tag }}
       cliff-config: ${{ inputs.cliff-config }}
       cliff-config-url: ${{ inputs.cliff-config-url }}
-    secrets: inherit

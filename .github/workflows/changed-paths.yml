@@ -234,6 +234,7 @@ jobs:
           # generous. Should the base be out of reach anyway -- a long direct push, a
           # force push, a brand new branch -- detection errors out and we do the work.
           fetch-depth: 50
+          persist-credentials: false
       -
         name: Detect changed paths
         id: filter
