@@ -72,7 +72,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Identify all-time contributors to this repository
-        uses: github/contributors@6bab24b098e0b692d679d59f97d73b9297c96c18 # v2.0.21
+        uses: github-community-projects/contributors@6bab24b098e0b692d679d59f97d73b9297c96c18 # v2.0.21
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
