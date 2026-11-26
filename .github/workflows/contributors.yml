@@ -69,6 +69,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Identify all-time contributors to this repository
         uses: github/contributors@6bab24b098e0b692d679d59f97d73b9297c96c18 # v2.0.21
         env:
@@ -180,6 +182,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Auto-approve PR
         run: gh pr review --approve "$PR_URL"
       - name: Wait for all workflow runs to complete
