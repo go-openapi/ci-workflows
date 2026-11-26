@@ -19,4 +19,3 @@ jobs:
       contents: read
       security-events: write
     uses: ./.github/workflows/codeql.yml
-    secrets: inherit

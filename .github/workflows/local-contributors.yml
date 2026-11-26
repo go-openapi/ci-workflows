@@ -15,4 +15,9 @@ jobs:
       pull-requests: write
       contents: write
     uses: ./.github/workflows/contributors.yml
-    secrets: inherit
+    secrets:
+      github-app-id: ${{ secrets.CI_BOT_APP_ID }}
+      github-app-private-key: ${{ secrets.CI_BOT_APP_PRIVATE_KEY }}
+      gpg-private-key: ${{ secrets.CI_BOT_GPG_PRIVATE_KEY }}
+      gpg-passphrase: ${{ secrets.CI_BOT_GPG_PASSPHRASE }}
+      gpg-fingerprint: ${{ secrets.CI_BOT_SIGNING_KEY }}

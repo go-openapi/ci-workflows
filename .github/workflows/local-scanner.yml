@@ -16,4 +16,3 @@ jobs:
       contents: read
       security-events: write
     uses: ./.github/workflows/scanner.yml
-    secrets: inherit
